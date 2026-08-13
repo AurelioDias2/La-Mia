@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls /usr/local/bin 2>/dev/null | head -20; echo \"---opt homebrew---\"; ls /opt/homebrew/bin 2>/dev/null | grep -iE \"node|npm\" ; echo \"---search node binary---\"; find / -maxdepth 4 -iname \"node\" -type f 2>/dev/null)",
+      "Bash(sw_vers)",
+      "Bash(sudo -n true)",
+      "Bash(/opt/homebrew/bin/brew --version)",
+      "Bash(/opt/homebrew/bin/brew install *)",
+      "Bash(/opt/homebrew/bin/brew services *)",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/pg_isready)",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/createdb lamia_dolce_vita)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/psql -l)",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/psql -d lamia_dolce_vita -c ' *)",
+      "Bash(grep -rli \"seção 52\\\\|secao 52\\\\|especifica\" /Users/aureliodias/Downloads/lamia-dolce-vita --include=\"*.md\" --include=\"*.txt\" 2>/dev/null; find /Users/aureliodias/Downloads -maxdepth 2 -iname \"*especifica*\" -o -iname \"*spec*\" 2>/dev/null)",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/createdb lamia_dolce_vita_test)",
+      "Bash(/opt/homebrew/opt/postgresql@16/bin/psql -d lamia_dolce_vita_test -c ' *)",
+      "Bash(git --version)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
+    ]
+  }
+}

@@ -1,0 +1,293 @@
+// La Mia Dolce Vita — Gestão de Folgas
+// Schema do banco de dados (PostgreSQL)
+//
+// Mapeamento com a especificação:
+//   USERS                      -> User
+//   EMPLOYEES                  -> Employee
+//   JOB_FUNCTIONS               -> JobFunction
+//   EMPLOYEE_FUNCTIONS          -> EmployeeFunction
+//   LEAVE_REQUESTS               -> LeaveRequest
+//   LEAVE_CREDIT_TRANSACTIONS    -> LeaveCreditTransaction
+//   HOLIDAYS                     -> Holiday
+//   BLOCKED_DATES                -> BlockedDate
+//   AUDIT_LOG                    -> AuditLog
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// ENUMS
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  DIRETOR_ADMIN
+  FUNCIONARIO
+}
+
+enum UserStatus {
+  PENDENTE
+  ATIVO
+  INATIVO
+  RECUSADO
+}
+
+enum LeaveType {
+  DOMINGO_MES
+  COMPENSATORIA
+  EXTRA
+}
+
+enum LeaveRequestStatus {
+  PENDENTE
+  APROVADA
+  RECUSADA
+  CANCELAMENTO_SOLICITADO
+  CANCELADA
+  UTILIZADA
+}
+
+enum CreditType {
+  COMPENSATORIA
+  EXTRA
+}
+
+// Positivo (crédito concedido), negativo (uso/consumo), ou correção.
+enum CreditTransactionKind {
+  CONCESSAO
+  RESERVA
+  CONSUMO
+  ESTORNO
+  CORRECAO
+}
+
+enum HolidayType {
+  NACIONAL
+  ESTADUAL
+  MUNICIPAL
+}
+
+enum StoreOpenStatus {
+  ABERTA
+  FECHADA
+  NAO_DEFINIDO
+}
+
+// ---------------------------------------------------------------------------
+// USERS (login / autenticação / perfil)
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String     @id @default(cuid())
+  username     String     @unique // Login: "Lamia" para o diretor; WhatsApp p/ funcionário
+  passwordHash String
+  role         UserRole
+  status       UserStatus @default(ATIVO)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  employee Employee?
+
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// EMPLOYEES
+// ---------------------------------------------------------------------------
+
+model Employee {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  fullName  String
+  whatsapp  String
+  status    UserStatus @default(PENDENTE) // PENDENTE -> ATIVO (seção 6/7) ou -> INATIVO (seção 32)
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  approvedAt DateTime?
+  approvedById String?
+  deactivatedAt DateTime?
+
+  functions          EmployeeFunction[]
+  leaveRequests      LeaveRequest[]
+  creditTransactions LeaveCreditTransaction[]
+
+  @@index([status])
+  @@map("employees")
+}
+
+// ---------------------------------------------------------------------------
+// JOB_FUNCTIONS  (seção 5 e 8 — lista fechada, só o diretor cria)
+// ---------------------------------------------------------------------------
+
+model JobFunction {
+  id        String   @id @default(cuid())
+  name      String   @unique // ex: "Forno/Assamento"
+  active    Boolean  @default(true)
+
+  // Limite de folgas simultâneas por dia para esta função (seção 49).
+  // Valor inicial 1 = regra "nunca duas pessoas da mesma função" (seção 14).
+  dailyLeaveLimit Int @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employeeLinks EmployeeFunction[]
+  leaveRequests LeaveRequest[]
+
+  @@map("job_functions")
+}
+
+// ---------------------------------------------------------------------------
+// EMPLOYEE_FUNCTIONS  (função principal / secundária — seção 9)
+// ---------------------------------------------------------------------------
+
+enum FunctionRole {
+  PRINCIPAL
+  SECUNDARIA
+}
+
+model EmployeeFunction {
+  id            String       @id @default(cuid())
+  employeeId    String
+  employee      Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  jobFunctionId String
+  jobFunction   JobFunction  @relation(fields: [jobFunctionId], references: [id])
+  role          FunctionRole
+
+  createdAt DateTime @default(now())
+
+  // Um funcionário só pode ter UMA função principal e UMA secundária.
+  @@unique([employeeId, role])
+  @@map("employee_functions")
+}
+
+// ---------------------------------------------------------------------------
+// LEAVE_REQUESTS
+// ---------------------------------------------------------------------------
+
+model LeaveRequest {
+  id            String              @id @default(cuid())
+  employeeId    String
+  employee      Employee            @relation(fields: [employeeId], references: [id])
+  jobFunctionId String
+  jobFunction   JobFunction         @relation(fields: [jobFunctionId], references: [id])
+
+  type   LeaveType
+  date   DateTime // apenas a data (meia-noite UTC), sem componente de hora
+  status LeaveRequestStatus @default(PENDENTE)
+
+  // Vincula a solicitação à transação de crédito reservada (COMPENSATORIA/EXTRA).
+  // Nulo para DOMINGO_MES, que não usa saldo de crédito.
+  creditTransactionId String? @unique
+  creditTransaction   LeaveCreditTransaction? @relation(fields: [creditTransactionId], references: [id])
+
+  requestedAt DateTime  @default(now())
+  decidedAt   DateTime?
+  decidedById String? // id do usuário Diretor que aprovou/recusou
+  cancelRequestedAt DateTime?
+  cancelDecidedAt   DateTime?
+
+  @@index([date, jobFunctionId, status])
+  @@index([employeeId])
+  @@map("leave_requests")
+}
+
+// ---------------------------------------------------------------------------
+// LEAVE_CREDIT_TRANSACTIONS  (extrato de créditos — nunca apaga, só lança)
+// ---------------------------------------------------------------------------
+
+model LeaveCreditTransaction {
+  id         String                 @id @default(cuid())
+  employeeId String
+  employee   Employee               @relation(fields: [employeeId], references: [id])
+
+  creditType CreditType
+  kind       CreditTransactionKind
+  amount     Int // positivo = crédito/estorno; negativo = reserva/consumo
+
+  reason      String?
+  originDate  DateTime? // "data que originou o crédito" (seção 19)
+  note        String?
+
+  // Preenchido quando `kind = CORRECAO`: referencia a transação corrigida.
+  correctsTransactionId String?
+
+  createdById String // Diretor responsável pelo lançamento
+  createdAt   DateTime @default(now())
+
+  leaveRequest LeaveRequest?
+
+  @@index([employeeId, creditType])
+  @@map("leave_credit_transactions")
+}
+
+// ---------------------------------------------------------------------------
+// HOLIDAYS
+// ---------------------------------------------------------------------------
+
+model Holiday {
+  id        String          @id @default(cuid())
+  date      DateTime
+  name      String
+  type      HolidayType
+  storeOpen StoreOpenStatus @default(NAO_DEFINIDO)
+  active    Boolean         @default(true) // desativar em vez de apagar (seção 50)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([date, name])
+  @@map("holidays")
+}
+
+// ---------------------------------------------------------------------------
+// BLOCKED_DATES  (seção 27)
+// ---------------------------------------------------------------------------
+
+model BlockedDate {
+  id        String   @id @default(cuid())
+  date      DateTime @unique
+  reason    String
+  createdById String
+  createdAt DateTime @default(now())
+  removedAt DateTime?
+
+  @@map("blocked_dates")
+}
+
+// ---------------------------------------------------------------------------
+// AUDIT_LOG  (seção 34 — histórico imutável)
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?  // usuário que executou a ação (nulo = sistema)
+  action    String   // ex: "CREDIT_GRANTED", "LEAVE_APPROVED", "EMPLOYEE_DEACTIVATED"
+  targetType String  // ex: "Employee", "LeaveRequest"
+  targetId  String
+  metadata  Json?    // detalhes estruturados (antes/depois, motivo, etc.)
+  createdAt DateTime @default(now())
+
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("audit_log")
+}
+
+// ---------------------------------------------------------------------------
+// SETTINGS  (seção 48 — parâmetros administráveis sem precisar de deploy)
+// ---------------------------------------------------------------------------
+
+model Settings {
+  id                        Int     @id @default(1)
+  fixedClosedWeekday        Int     @default(1) // 0=domingo ... 1=segunda (seção 10)
+  requestsRequireApproval   Boolean @default(true)
+  pendingRequestHoldsSlot   Boolean @default(true)
+}

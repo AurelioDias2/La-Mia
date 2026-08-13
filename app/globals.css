@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-crosta-50 text-carvao-900;
+  }
+  body {
+    @apply font-sans antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-card bg-vinho-500 px-5 py-3 font-sans text-sm font-semibold text-crosta-50 transition hover:bg-vinho-600 active:bg-vinho-700 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-card border border-carvao-300 bg-white px-5 py-3 font-sans text-sm font-semibold text-carvao-700 transition hover:bg-carvao-50;
+  }
+  .field-label {
+    @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-carvao-500;
+  }
+  .field-input {
+    @apply w-full rounded-card border border-carvao-100 bg-white px-4 py-3 text-carvao-900 placeholder:text-carvao-300 focus:border-vinho-400 focus:outline-none focus:ring-2 focus:ring-vinho-50;
+  }
+  .card {
+    @apply rounded-card border border-carvao-100 bg-white p-5 shadow-sm;
+  }
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold;
+  }
+}
