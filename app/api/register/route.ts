@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import argon2 from "argon2";
 import { prisma } from "@/lib/prisma";
 import { registerSchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
+import { hashPassword } from "@/lib/password";
 
 export async function POST(req: Request) {
   const body = await req.json();
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
+  const passwordHash = await hashPassword(password);
 
   const employee = await prisma.$transaction(async (tx) => {
     // O perfil é sempre FUNCIONARIO — nunca vem do formulário (seção 2:

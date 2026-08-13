@@ -1,11 +1,11 @@
-import argon2 from "argon2";
 import { prisma } from "./db";
+import { hashPassword } from "../lib/password";
 
 export async function criarDiretor() {
   return prisma.user.create({
     data: {
       username: `diretor-${Date.now()}-${Math.random()}`,
-      passwordHash: await argon2.hash("senha-diretor"),
+      passwordHash: await hashPassword("senha-diretor"),
       role: "DIRETOR_ADMIN",
       status: "ATIVO",
     },
@@ -28,7 +28,7 @@ export async function criarFuncionario(params: {
   const user = await prisma.user.create({
     data: {
       username: `func-${Date.now()}-${Math.random()}`,
-      passwordHash: await argon2.hash("senha-funcionario"),
+      passwordHash: await hashPassword("senha-funcionario"),
       role: "FUNCIONARIO",
       status: params.status ?? "ATIVO",
     },

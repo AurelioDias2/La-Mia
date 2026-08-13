@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
-import argon2 from "argon2";
 import { prisma } from "@/lib/prisma";
 import { requireDirector } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 import { calcularSaldoCredito } from "@/lib/availability";
+import { hashPassword } from "@/lib/password";
 
 // Ficha completa do funcionário (spec seção 31).
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
@@ -136,7 +136,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         // manualmente para a pessoa (WhatsApp, presencial). Só aparece uma vez
         // nesta resposta — nunca é salva em texto puro.
         const tempPassword = randomBytes(6).toString("hex");
-        const passwordHash = await argon2.hash(tempPassword);
+        const passwordHash = await hashPassword(tempPassword);
         await tx.user.update({ where: { id: employee.userId }, data: { passwordHash } });
         await logAudit(tx, {
           actorId: session!.user.id,

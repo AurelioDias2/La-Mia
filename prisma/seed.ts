@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import argon2 from "argon2";
+import { hashPassword } from "../lib/password";
 
 const prisma = new PrismaClient();
 
@@ -13,7 +13,7 @@ async function main() {
     );
   }
 
-  const passwordHash = await argon2.hash(adminPassword, { type: argon2.argon2id });
+  const passwordHash = await hashPassword(adminPassword);
 
   await prisma.user.upsert({
     where: { username: adminUsername },

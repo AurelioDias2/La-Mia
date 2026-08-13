@@ -1,7 +1,7 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import argon2 from "argon2";
 import { prisma } from "@/lib/prisma";
+import { verifyPassword } from "@/lib/password";
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
@@ -27,7 +27,7 @@ export const authOptions: NextAuthOptions = {
         // Login bloqueado: funcionário PENDENTE, RECUSADO ou INATIVO não entra.
         if (user.status !== "ATIVO") return null;
 
-        const validPassword = await argon2.verify(user.passwordHash, credentials.password);
+        const validPassword = await verifyPassword(user.passwordHash, credentials.password);
         if (!validPassword) return null;
 
         return {
