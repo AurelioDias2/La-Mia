@@ -14,9 +14,11 @@ Prisma + PostgreSQL + NextAuth (Auth.js) + Tailwind CSS + Zod + Argon2id.
 - **Concorrência**: a criação de uma solicitação roda `verificarDisponibilidade` de
   novo dentro de uma transação Postgres `Serializable` (seção 41). Veja a nota sobre
   o índice único abaixo — ele é o reforço final contra corrida de dados.
-- **Autenticação**: NextAuth com Credentials Provider, senha com Argon2id, sessão
-  JWT. Conta do Diretor criada apenas via `prisma/seed.ts` + variável de ambiente
-  (seção 43 — a senha nunca fica no repositório).
+- **Autenticação**: NextAuth com Credentials Provider, senha com Argon2id (via
+  `hash-wasm`, WebAssembly puro — o pacote `argon2` nativo não roda no runtime
+  serverless da Vercel), sessão JWT. Conta do Diretor criada apenas via
+  `prisma/seed.ts` + variável de ambiente (seção 43 — a senha nunca fica no
+  repositório).
 - **Controle de acesso no servidor**: `middleware.ts` bloqueia `/admin` para quem
   não é Diretor, mesmo digitando a URL manualmente (seção 44). Cada rota de API
   também valida a sessão de novo (`lib/session.ts`) — não basta esconder o menu.
@@ -33,28 +35,34 @@ Prisma + PostgreSQL + NextAuth (Auth.js) + Tailwind CSS + Zod + Argon2id.
   funções, histórico, configurações) e painel do Funcionário (início, calendário
   de escolha de data, minhas solicitações com pedido de cancelamento).
 
-## O que falta antes de ir para produção
+## Produção
 
-Isto é um scaffold sólido, não um sistema testado e revisado. Antes de publicar:
+Publicado em **https://la-mia-gi5r.vercel.app** (Vercel + Postgres na Neon).
+Login do Diretor: usuário `Lamia`, senha combinada à parte (nunca fica no
+código nem neste README).
 
-1. **Backup automático do banco** (seção 51): configurar no provedor do
-   PostgreSQL (a maioria — Supabase, Neon, Railway, RDS — já oferece isso).
-2. **HTTPS e variáveis de produção**: ao publicar (Vercel, Railway, etc.), gerar um
-   `NEXTAUTH_SECRET` novo e configurar `DATABASE_URL` apontando para o Postgres
-   real.
-3. **"Esqueci minha senha" via canal automático**: hoje o fluxo é manual — a
+O que falta antes de considerar isso pronto para uso real da padaria:
+
+1. **Backup automático do banco**: configurar no painel da Neon (Backups /
+   Point-in-time restore).
+2. **"Esqueci minha senha" via canal automático**: hoje o fluxo é manual — a
    Direção gera uma senha temporária na ficha do funcionário e repassa por
    WhatsApp (ver `app/esqueci-senha/page.tsx`). Se no futuro vocês quiserem
    algo self-service (SMS via WhatsApp Business API, e-mail), isso ainda
    precisa de um provedor configurado.
+3. **Atualizar o Next.js**: a versão instalada (14.2.15) tem uma vulnerabilidade
+   de segurança conhecida (aviso do próprio `npm install`) — vale planejar o
+   upgrade antes de abrir o sistema para uso real.
 
-Já concluído desde a versão anterior deste README:
+Já concluído:
 
 - **Índice único parcial** contra corrida de concorrência (seção 41) — já
-  criado nas migrações/instruções abaixo.
+  criado nas migrações/instruções abaixo (e no banco de produção).
 - **Tela de "Corrigir crédito"** na ficha do funcionário (seção 31).
 - **Fluxo de "Esqueci minha senha"** (redefinição manual pela Direção).
 - **Os 15 testes da seção 52** — ver "Testes" abaixo.
+- **HTTPS e variáveis de produção** — deploy na Vercel com `NEXTAUTH_SECRET`
+  próprio e banco separado do de desenvolvimento.
 
 ## Rodando localmente
 
