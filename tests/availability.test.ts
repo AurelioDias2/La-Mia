@@ -173,6 +173,22 @@ describe("verificarDisponibilidade", () => {
     expect(result.motivo).toBe("SEM_CREDITO");
   });
 
+  it("permite pedir folga no dia de fechamento geral quando a função é isenta (ex: Produção na segunda)", async () => {
+    const funcao = await criarFuncao({ followsStoreClosure: false });
+    const { employee } = await criarFuncionario({ jobFunctionId: funcao.id });
+
+    const result = await verificarDisponibilidade(prisma, {
+      employeeId: employee.id,
+      jobFunctionId: funcao.id,
+      date: SEGUNDA_FEIRA, // fechamento geral da loja, mas esta função é isenta
+      type: "COMPENSATORIA",
+    });
+
+    // Não deve ser recusado por LOJA_FECHADA — outros motivos (ex: sem
+    // crédito) ainda podem se aplicar, mas o fechamento geral não conta.
+    expect(result.motivo).not.toBe("LOJA_FECHADA");
+  });
+
   it("retorna FUNCAO_FECHADA_NO_DIA quando a função tem fechamento próprio nesse dia da semana", async () => {
     // Setores diferentes podem ter fechamentos diferentes entre si (ex:
     // Produção fechada às terças, sem afetar a Pronta Entrega).

@@ -64,9 +64,12 @@ export async function verificarDisponibilidade(
   }
 
   // 2. Dia válido (não é a segunda-feira de fechamento fixo — seção 10)?
+  // Só vale para funções que realmente não trabalham nesse dia
+  // (jobFunction.followsStoreClosure) — algumas, como Produção, seguem
+  // trabalhando mesmo com a loja fechada pro público.
   const settings = await tx.settings.findUnique({ where: { id: 1 } });
   const closedWeekday = settings?.fixedClosedWeekday ?? 1; // 1 = segunda-feira
-  if (data.getUTCDay() === closedWeekday) {
+  if (jobFunction.followsStoreClosure && data.getUTCDay() === closedWeekday) {
     return fail("LOJA_FECHADA", "A loja não abre nesse dia da semana (fechamento semanal).");
   }
 

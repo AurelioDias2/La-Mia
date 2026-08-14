@@ -136,10 +136,17 @@ model JobFunction {
   // Valor inicial 1 = regra "nunca duas pessoas da mesma função" (seção 14).
   dailyLeaveLimit Int @default(1)
 
+  // Se esta função é afetada pelo fechamento fixo da loja
+  // (Settings.fixedClosedWeekday). true = segue o fechamento geral (ex:
+  // Pronta Entrega, que não trabalha nesse dia). false = função isenta,
+  // porque ela trabalha nesse dia mesmo com a loja fechada pro público
+  // (ex: Produção, que segue produzindo às segundas).
+  followsStoreClosure Boolean @default(true)
+
   // Dia da semana fechado só para esta função (0=domingo ... 6=sábado), além
-  // do fechamento fixo da loja (Settings.fixedClosedWeekday, que vale pra
-  // todo mundo). Nulo = esta função não tem fechamento adicional. Setores
-  // diferentes podem ter dias de fechamento diferentes entre si.
+  // (ou no lugar) do fechamento geral da loja. Nulo = esta função não tem
+  // fechamento próprio definido ainda. Setores diferentes podem ter dias de
+  // fechamento diferentes entre si.
   closedWeekday Int?
 
   createdAt DateTime @default(now())

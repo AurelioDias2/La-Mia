@@ -12,6 +12,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     dailyLeaveLimit?: number;
     name?: string;
     closedWeekday?: number | null;
+    followsStoreClosure?: boolean;
   };
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -22,6 +23,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         dailyLeaveLimit: body.dailyLeaveLimit,
         name: body.name,
         closedWeekday: body.closedWeekday,
+        followsStoreClosure: body.followsStoreClosure,
       },
     });
     await logAudit(tx, {

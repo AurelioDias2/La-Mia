@@ -31,12 +31,21 @@ async function main() {
   // especificação original — mesmas regras de domingo do mês, sem fechamento
   // extra definido ainda; a Direção pode configurar um dia de fechamento só
   // pra essa função na tela "Funções" quando decidirem).
-  const initialFunctions = ["Forno/Assamento", "Ensacamento", "Montagem de pedidos/Nota", "Produção"];
-  for (const name of initialFunctions) {
+  //
+  // Produção trabalha todos os dias, inclusive na segunda-feira de
+  // fechamento fixo da loja (só a Pronta Entrega não trabalha nesse dia) —
+  // por isso followsStoreClosure: false só pra ela.
+  const initialFunctions: { name: string; followsStoreClosure: boolean }[] = [
+    { name: "Forno/Assamento", followsStoreClosure: true },
+    { name: "Ensacamento", followsStoreClosure: true },
+    { name: "Montagem de pedidos/Nota", followsStoreClosure: true },
+    { name: "Produção", followsStoreClosure: false },
+  ];
+  for (const { name, followsStoreClosure } of initialFunctions) {
     await prisma.jobFunction.upsert({
       where: { name },
       update: {},
-      create: { name, active: true, dailyLeaveLimit: 1 },
+      create: { name, active: true, dailyLeaveLimit: 1, followsStoreClosure },
     });
   }
   console.log("Funções iniciais garantidas.");

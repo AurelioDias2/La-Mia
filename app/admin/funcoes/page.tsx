@@ -8,6 +8,7 @@ type JobFunction = {
   active: boolean;
   dailyLeaveLimit: number;
   closedWeekday: number | null;
+  followsStoreClosure: boolean;
 };
 
 const DIAS_SEMANA = [
@@ -65,6 +66,15 @@ export default function FuncoesPage() {
     load();
   }
 
+  async function atualizarSegueFechamentoLoja(id: string, followsStoreClosure: boolean) {
+    await fetch(`/api/job-functions/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ followsStoreClosure }),
+    });
+    load();
+  }
+
   async function atualizarFechamento(id: string, value: string) {
     await fetch(`/api/job-functions/${id}`, {
       method: "PATCH",
@@ -102,6 +112,20 @@ export default function FuncoesPage() {
                 {f.active ? "Desativar" : "Reativar"}
               </button>
             </div>
+            <label className="mt-3 flex items-center gap-2 text-sm text-carvao-600">
+              <input
+                type="checkbox"
+                checked={f.followsStoreClosure}
+                onChange={(e) => atualizarSegueFechamentoLoja(f.id, e.target.checked)}
+              />
+              Segue o fechamento geral da loja
+            </label>
+            {!f.followsStoreClosure && (
+              <p className="mt-1 text-xs text-carvao-500">
+                Esta função trabalha mesmo no dia de fechamento da loja — pode receber pedidos de folga
+                nesse dia normalmente.
+              </p>
+            )}
             <div className="mt-3">
               <label className="field-label" htmlFor={`fechamento-${f.id}`}>
                 Dia de fechamento só desta função (além do fechamento geral da loja)
