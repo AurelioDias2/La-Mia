@@ -12,11 +12,14 @@ export async function criarDiretor() {
   });
 }
 
-export async function criarFuncao(overrides: Partial<{ name: string; dailyLeaveLimit: number }> = {}) {
+export async function criarFuncao(
+  overrides: Partial<{ name: string; dailyLeaveLimit: number; closedWeekday: number | null }> = {}
+) {
   return prisma.jobFunction.create({
     data: {
       name: overrides.name ?? `Funcao-${Date.now()}-${Math.random()}`,
       dailyLeaveLimit: overrides.dailyLeaveLimit ?? 1,
+      closedWeekday: overrides.closedWeekday ?? null,
     },
   });
 }

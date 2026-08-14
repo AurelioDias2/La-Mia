@@ -27,8 +27,11 @@ async function main() {
   });
   console.log(`Conta do Diretor "${adminUsername}" garantida.`);
 
-  // Funções iniciais (seção 5).
-  const initialFunctions = ["Forno/Assamento", "Ensacamento", "Montagem de pedidos/Nota"];
+  // Funções iniciais (seção 5) + Produção (setor adicionado depois, fora da
+  // especificação original — mesmas regras de domingo do mês, sem fechamento
+  // extra definido ainda; a Direção pode configurar um dia de fechamento só
+  // pra essa função na tela "Funções" quando decidirem).
+  const initialFunctions = ["Forno/Assamento", "Ensacamento", "Montagem de pedidos/Nota", "Produção"];
   for (const name of initialFunctions) {
     await prisma.jobFunction.upsert({
       where: { name },

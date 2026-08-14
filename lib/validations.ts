@@ -53,4 +53,5 @@ export const holidaySchema = z.object({
 export const jobFunctionSchema = z.object({
   name: z.string().trim().min(1),
   dailyLeaveLimit: z.number().int().min(1).default(1),
+  closedWeekday: z.number().int().min(0).max(6).nullable().optional(),
 });

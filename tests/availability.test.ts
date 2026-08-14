@@ -173,6 +173,23 @@ describe("verificarDisponibilidade", () => {
     expect(result.motivo).toBe("SEM_CREDITO");
   });
 
+  it("retorna FUNCAO_FECHADA_NO_DIA quando a função tem fechamento próprio nesse dia da semana", async () => {
+    // Setores diferentes podem ter fechamentos diferentes entre si (ex:
+    // Produção fechada às terças, sem afetar a Pronta Entrega).
+    const funcao = await criarFuncao({ closedWeekday: 2 }); // 2 = terça-feira
+    const { employee } = await criarFuncionario({ jobFunctionId: funcao.id });
+
+    const result = await verificarDisponibilidade(prisma, {
+      employeeId: employee.id,
+      jobFunctionId: funcao.id,
+      date: TERCA_FEIRA,
+      type: "COMPENSATORIA",
+    });
+
+    expect(result.disponivel).toBe(false);
+    expect(result.motivo).toBe("FUNCAO_FECHADA_NO_DIA");
+  });
+
   it("retorna FUNCIONARIO_INATIVO quando o funcionário não está ativo", async () => {
     const funcao = await criarFuncao();
     const { employee } = await criarFuncionario({ jobFunctionId: funcao.id, status: "INATIVO" });

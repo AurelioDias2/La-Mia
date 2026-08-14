@@ -12,7 +12,8 @@ export type AvailabilityReasonCode =
   | "DOMINGO_JA_UTILIZADO"
   | "DIA_INVALIDO"
   | "FUNCIONARIO_INATIVO"
-  | "SOLICITACAO_EXISTENTE";
+  | "SOLICITACAO_EXISTENTE"
+  | "FUNCAO_FECHADA_NO_DIA";
 
 export interface AvailabilityResult {
   disponivel: boolean;
@@ -57,11 +58,22 @@ export async function verificarDisponibilidade(
     return fail("FUNCIONARIO_INATIVO", "Este funcionário não está ativo no sistema.");
   }
 
+  const jobFunction = await tx.jobFunction.findUnique({ where: { id: params.jobFunctionId } });
+  if (!jobFunction || !jobFunction.active) {
+    return fail("DIA_INVALIDO", "Função inválida.");
+  }
+
   // 2. Dia válido (não é a segunda-feira de fechamento fixo — seção 10)?
   const settings = await tx.settings.findUnique({ where: { id: 1 } });
   const closedWeekday = settings?.fixedClosedWeekday ?? 1; // 1 = segunda-feira
   if (data.getUTCDay() === closedWeekday) {
     return fail("LOJA_FECHADA", "A loja não abre nesse dia da semana (fechamento semanal).");
+  }
+
+  // 2.1. Fechamento adicional específico da função (setores diferentes podem
+  // ter dias de fechamento diferentes — ex: Produção x Pronta Entrega).
+  if (jobFunction.closedWeekday !== null && data.getUTCDay() === jobFunction.closedWeekday) {
+    return fail("FUNCAO_FECHADA_NO_DIA", "Sua função não abre folgas nesse dia da semana.");
   }
 
   // Para DOMINGO_MES, a data escolhida precisa realmente ser domingo.
@@ -118,10 +130,6 @@ export async function verificarDisponibilidade(
 
   // 7. Conflito de função: limite de folgas simultâneas por dia por função
   //    (seção 14 e 49 — configurável, padrão 1).
-  const jobFunction = await tx.jobFunction.findUnique({ where: { id: params.jobFunctionId } });
-  if (!jobFunction || !jobFunction.active) {
-    return fail("DIA_INVALIDO", "Função inválida.");
-  }
   const holdsSlot = settings?.pendingRequestHoldsSlot ?? true;
   const concurrentStatuses = holdsSlot ? (["PENDENTE", "APROVADA"] as const) : (["APROVADA"] as const);
   const sameDayFunctionCount = await tx.leaveRequest.count({

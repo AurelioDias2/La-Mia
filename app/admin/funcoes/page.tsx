@@ -2,7 +2,23 @@
 
 import { useEffect, useState } from "react";
 
-type JobFunction = { id: string; name: string; active: boolean; dailyLeaveLimit: number };
+type JobFunction = {
+  id: string;
+  name: string;
+  active: boolean;
+  dailyLeaveLimit: number;
+  closedWeekday: number | null;
+};
+
+const DIAS_SEMANA = [
+  "Domingo",
+  "Segunda-feira",
+  "Terça-feira",
+  "Quarta-feira",
+  "Quinta-feira",
+  "Sexta-feira",
+  "Sábado",
+];
 
 export default function FuncoesPage() {
   const [functions, setFunctions] = useState<JobFunction[]>([]);
@@ -49,6 +65,15 @@ export default function FuncoesPage() {
     load();
   }
 
+  async function atualizarFechamento(id: string, value: string) {
+    await fetch(`/api/job-functions/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ closedWeekday: value === "" ? null : parseInt(value, 10) }),
+    });
+    load();
+  }
+
   return (
     <div className="max-w-lg">
       <h1 className="mb-4 font-display text-2xl font-semibold text-vinho-500">Funções</h1>
@@ -76,6 +101,24 @@ export default function FuncoesPage() {
               <button className="btn-secondary text-xs" onClick={() => alternarAtiva(f.id, f.active)}>
                 {f.active ? "Desativar" : "Reativar"}
               </button>
+            </div>
+            <div className="mt-3">
+              <label className="field-label" htmlFor={`fechamento-${f.id}`}>
+                Dia de fechamento só desta função (além do fechamento geral da loja)
+              </label>
+              <select
+                id={`fechamento-${f.id}`}
+                className="field-input"
+                defaultValue={f.closedWeekday ?? ""}
+                onChange={(e) => atualizarFechamento(f.id, e.target.value)}
+              >
+                <option value="">Nenhum — segue só o fechamento geral da loja</option>
+                {DIAS_SEMANA.map((nome, idx) => (
+                  <option key={idx} value={idx}>
+                    {nome}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         ))}

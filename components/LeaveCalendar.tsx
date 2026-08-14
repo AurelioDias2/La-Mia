@@ -19,6 +19,7 @@ const motivoEmoji: Record<string, string> = {
   DIA_INVALIDO: "🔒",
   FUNCIONARIO_INATIVO: "🔒",
   SOLICITACAO_EXISTENTE: "⏳",
+  FUNCAO_FECHADA_NO_DIA: "🏠",
 };
 
 export function LeaveCalendar({

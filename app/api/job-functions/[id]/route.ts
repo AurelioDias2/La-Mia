@@ -7,7 +7,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const { session, error } = await requireDirector();
   if (error) return NextResponse.json({ error }, { status: 401 });
 
-  const body = await req.json() as { active?: boolean; dailyLeaveLimit?: number; name?: string };
+  const body = await req.json() as {
+    active?: boolean;
+    dailyLeaveLimit?: number;
+    name?: string;
+    closedWeekday?: number | null;
+  };
 
   const updated = await prisma.$transaction(async (tx) => {
     const f = await tx.jobFunction.update({
@@ -16,6 +21,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         active: body.active,
         dailyLeaveLimit: body.dailyLeaveLimit,
         name: body.name,
+        closedWeekday: body.closedWeekday,
       },
     });
     await logAudit(tx, {
