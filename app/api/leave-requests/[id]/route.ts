@@ -3,7 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { requireDirector, requireEmployee } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
 
-type Action = "APROVAR" | "RECUSAR" | "SOLICITAR_CANCELAMENTO" | "APROVAR_CANCELAMENTO" | "RECUSAR_CANCELAMENTO";
+type Action =
+  | "APROVAR"
+  | "RECUSAR"
+  | "SOLICITAR_CANCELAMENTO"
+  | "APROVAR_CANCELAMENTO"
+  | "RECUSAR_CANCELAMENTO"
+  | "CANCELAR_DIRETO";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const body = await req.json();
@@ -104,6 +110,26 @@ async function handleDirectorDecision(id: string, action: Action) {
     } else if (action === "RECUSAR_CANCELAMENTO" && leaveRequest.status === "CANCELAMENTO_SOLICITADO") {
       newStatus = "APROVADA"; // volta ao estado anterior
       auditAction = "LEAVE_CANCEL_REJECTED";
+    } else if (
+      action === "CANCELAR_DIRETO" &&
+      (leaveRequest.status === "PENDENTE" || leaveRequest.status === "APROVADA")
+    ) {
+      // Direção cancela direto, sem o funcionário precisar pedir primeiro —
+      // ex: liberar o domingo do mês pra a pessoa escolher outra data.
+      newStatus = "CANCELADA";
+      auditAction = "LEAVE_CANCELLED_BY_DIRECTOR";
+      if (leaveRequest.creditTransactionId) {
+        await tx.leaveCreditTransaction.create({
+          data: {
+            employeeId: leaveRequest.employeeId,
+            creditType: leaveRequest.type as "COMPENSATORIA" | "EXTRA",
+            kind: "ESTORNO",
+            amount: 1,
+            reason: "Estorno por cancelamento direto da Direção",
+            createdById: session!.user.id,
+          },
+        });
+      }
     } else {
       throw new Error("TRANSICAO_INVALIDA");
     }

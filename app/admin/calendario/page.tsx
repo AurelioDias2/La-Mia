@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AdminLeaveCalendar } from "@/components/AdminLeaveCalendar";
 
 type BlockedDate = { id: string; date: string; reason: string };
 
@@ -34,11 +35,19 @@ export default function CalendarioPage() {
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
+    <div className="space-y-8">
       <div>
         <h1 className="mb-4 font-display text-2xl font-semibold text-vinho-500">
-          Datas bloqueadas
+          Folgas do mês
         </h1>
+        <AdminLeaveCalendar />
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+      <div>
+        <h2 className="mb-4 font-display text-2xl font-semibold text-vinho-500">
+          Datas bloqueadas
+        </h2>
         <div className="space-y-3">
           {blocked.length === 0 && <p className="text-carvao-500">Nenhuma data bloqueada.</p>}
           {blocked.map((b) => (
@@ -81,6 +90,7 @@ export default function CalendarioPage() {
             {loading ? "Bloqueando…" : "Confirmar bloqueio"}
           </button>
         </form>
+      </div>
       </div>
     </div>
   );
