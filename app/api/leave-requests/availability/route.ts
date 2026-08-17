@@ -32,6 +32,15 @@ export async function GET(req: Request) {
   const [year, m] = month.split("-").map(Number);
   const daysInMonth = new Date(Date.UTC(year, m, 0)).getUTCDate();
 
+  // Quantas pessoas da mesma função já ocupam cada dia — pra quem tá
+  // escolhendo ver que outra pessoa já folgou naquele dia, mesmo quando
+  // ainda há vaga (limite configurável por função, seção 49).
+  const jobFunction = await prisma.jobFunction.findUnique({ where: { id: jobFunctionId } });
+  const settings = await prisma.settings.findUnique({ where: { id: 1 } });
+  const holdsSlot = settings?.pendingRequestHoldsSlot ?? true;
+  const concurrentStatuses = holdsSlot ? (["PENDENTE", "APROVADA"] as const) : (["APROVADA"] as const);
+  const limite = jobFunction?.dailyLeaveLimit ?? 1;
+
   const days = [];
   for (let day = 1; day <= daysInMonth; day++) {
     const date = new Date(Date.UTC(year, m - 1, day));
@@ -43,7 +52,10 @@ export async function GET(req: Request) {
       date,
       type,
     });
-    days.push({ date: date.toISOString().slice(0, 10), ...result });
+    const ocupadas = await prisma.leaveRequest.count({
+      where: { jobFunctionId, date, status: { in: [...concurrentStatuses] } },
+    });
+    days.push({ date: date.toISOString().slice(0, 10), ...result, ocupadas, limite });
   }
 
   return NextResponse.json(days);

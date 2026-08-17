@@ -12,8 +12,10 @@ Prisma + PostgreSQL + NextAuth (Auth.js) + Tailwind CSS + Zod + Argon2id.
   (`DISPONIVEL`, `LOJA_FECHADA`, `CONFLITO_FUNCAO`, etc.). Todas as rotas passam por
   ela — o frontend nunca decide disponibilidade sozinho (seção 40).
 - **Concorrência**: a criação de uma solicitação roda `verificarDisponibilidade` de
-  novo dentro de uma transação Postgres `Serializable` (seção 41). Veja a nota sobre
-  o índice único abaixo — ele é o reforço final contra corrida de dados.
+  novo dentro de uma transação Postgres `Serializable` (seção 41) — é essa
+  transação (não um índice único) que garante a trava, porque o limite de
+  folgas simultâneas por dia é configurável por função (algumas funções
+  permitem só 1 pessoa por dia, outras permitem mais).
 - **Autenticação**: NextAuth com Credentials Provider, senha com Argon2id (via
   `hash-wasm`, WebAssembly puro — o pacote `argon2` nativo não roda no runtime
   serverless da Vercel), sessão JWT. Conta do Diretor criada apenas via
@@ -56,8 +58,6 @@ O que falta antes de considerar isso pronto para uso real da padaria:
 
 Já concluído:
 
-- **Índice único parcial** contra corrida de concorrência (seção 41) — já
-  criado nas migrações/instruções abaixo (e no banco de produção).
 - **Tela de "Corrigir crédito"** na ficha do funcionário (seção 31).
 - **Fluxo de "Esqueci minha senha"** (redefinição manual pela Direção).
 - **Os 15 testes da seção 52** — ver "Testes" abaixo.
@@ -83,19 +83,6 @@ npx prisma db seed        # cria a conta da Lamia + funções iniciais
 npm run dev                # http://localhost:3000
 ```
 
-Depois de rodar a primeira migração, crie também o índice único parcial que
-reforça a trava de concorrência (seção 41) — a migração sozinha não cobre isso:
-
-```sql
-CREATE UNIQUE INDEX leave_requests_one_active_slot
-ON leave_requests ("jobFunctionId", date)
-WHERE status IN ('PENDENTE', 'APROVADA');
-```
-
-(Se no futuro vocês quiserem permitir mais de 1 pessoa por função por dia, esse
-índice deixa de funcionar como está — nesse caso o controle de limite fica só
-na lógica de `verificarDisponibilidade`, que já é configurável por função.)
-
 Depois do primeiro login como `Lamia`, é recomendável trocar a senha (não há
 tela de troca de senha ainda — peça para a própria Direção gerar uma nova pela
 ficha do funcionário, ou ajuste direto no banco por enquanto).
@@ -120,8 +107,6 @@ EOF
 
 DATABASE_URL="postgresql://SEU_USUARIO@localhost:5432/lamia_dolce_vita_test?schema=public" \
   npx prisma migrate deploy
-
-# não esquecer do índice único parcial acima também no banco de teste
 
 npm test
 ```

@@ -7,7 +7,14 @@ type DayStatus = {
   disponivel: boolean;
   motivo: string;
   mensagem: string;
+  ocupadas: number;
+  limite: number;
 };
+
+function tituloDia(d: DayStatus): string {
+  const ocupacao = d.ocupadas > 0 ? ` (${d.ocupadas} de ${d.limite} vaga${d.limite > 1 ? "s" : ""} já ocupada${d.ocupadas > 1 ? "s" : ""})` : "";
+  return (d.disponivel ? "Disponível" : d.mensagem) + ocupacao;
+}
 
 const motivoEmoji: Record<string, string> = {
   DISPONIVEL: "🟢",
@@ -129,8 +136,8 @@ export function LeaveCalendar({
               key={i}
               disabled={!d.disponivel}
               onClick={() => setSelected(d)}
-              title={d.disponivel ? "Disponível" : d.mensagem}
-              className={`aspect-square rounded-card border text-sm font-semibold transition ${
+              title={tituloDia(d)}
+              className={`relative aspect-square rounded-card border text-sm font-semibold transition ${
                 isSelected
                   ? "border-vinho-500 bg-vinho-500 text-white"
                   : d.disponivel
@@ -139,6 +146,15 @@ export function LeaveCalendar({
               }`}
             >
               {dayNum}
+              {d.ocupadas > 0 && (
+                <span
+                  className={`absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-0.5 text-[10px] font-bold ${
+                    isSelected ? "bg-white text-vinho-500" : "bg-crosta-500 text-white"
+                  }`}
+                >
+                  {d.ocupadas}
+                </span>
+              )}
             </button>
           );
         })}
@@ -147,10 +163,21 @@ export function LeaveCalendar({
         )}
       </div>
 
+      {days.some((d) => d.ocupadas > 0) && (
+        <p className="mt-2 text-xs text-carvao-500">
+          <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-crosta-500 px-0.5 text-[10px] font-bold text-white">
+            nº
+          </span>{" "}
+          = quantas pessoas já escolheram folgar naquele dia.
+        </p>
+      )}
+
       {selected && (
         <p className="mt-3 text-sm text-carvao-700">
           {motivoEmoji[selected.motivo] ?? "🟢"} Dia {Number(selected.date.slice(-2))} de {MESES[m - 1]}{" "}
           selecionado.
+          {selected.ocupadas > 0 &&
+            ` ${selected.ocupadas} de ${selected.limite} vaga${selected.limite > 1 ? "s" : ""} já ocupada${selected.ocupadas > 1 ? "s" : ""} nesse dia.`}
         </p>
       )}
       {feedback && <p className="mt-3 text-sm text-carvao-700">{feedback}</p>}
