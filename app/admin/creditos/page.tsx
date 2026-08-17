@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { extractErrorMessage } from "@/lib/errors";
 
 type Employee = { id: string; fullName: string };
 
@@ -46,8 +47,8 @@ export default function CreditosPage() {
       setNote("");
       setAmount(1);
     } else {
-      const data = await res.json();
-      setMessage(data.error?.formErrors?.[0] ?? "Não foi possível registrar o crédito.");
+      const data = await res.json().catch(() => null);
+      setMessage(extractErrorMessage(data, "Não foi possível registrar o crédito."));
     }
   }
 

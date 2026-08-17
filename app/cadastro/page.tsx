@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { extractErrorMessage } from "@/lib/errors";
 
 type JobFunction = { id: string; name: string };
 
@@ -36,8 +37,8 @@ export default function CadastroPage() {
     setLoading(false);
 
     if (!res.ok) {
-      const data = await res.json();
-      setErrorMsg(data.error?.formErrors?.[0] ?? data.error ?? "Não foi possível concluir o cadastro.");
+      const data = await res.json().catch(() => null);
+      setErrorMsg(extractErrorMessage(data, "Não foi possível concluir o cadastro."));
       return;
     }
     setSubmitted(true);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { extractErrorMessage } from "@/lib/errors";
 
 type CreditTransaction = {
   id: string;
@@ -84,8 +85,8 @@ export default function FichaFuncionarioPage({ params }: { params: { id: string 
       setCorrectingId(null);
       load();
     } else {
-      const data = await res.json();
-      setCorrectError(data.error?.formErrors?.[0] ?? "Não foi possível corrigir o crédito.");
+      const data = await res.json().catch(() => null);
+      setCorrectError(extractErrorMessage(data, "Não foi possível corrigir o crédito."));
     }
   }
 
