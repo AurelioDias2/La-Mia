@@ -5,6 +5,7 @@
 @layer base {
   html {
     @apply bg-crosta-50 text-carvao-900;
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     @apply font-sans antialiased;
@@ -13,6 +14,15 @@
   h2,
   h3 {
     @apply font-display;
+  }
+  /* Sem isso, toques em botões viram seleção de texto em vez de clique em
+     alguns navegadores móveis (o toque espera ~300ms pra descartar um
+     double-tap-to-zoom, e qualquer leve movimento nesse meio-tempo vira
+     seleção). Afeta qualquer botão do app, não só formulários. */
+  button {
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
   }
 }
 
