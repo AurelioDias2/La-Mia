@@ -23,6 +23,7 @@ export default function FuncionariosPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [filter, setFilter] = useState<(typeof statusFilters)[number]>("Pendentes");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [tempPasswords, setTempPasswords] = useState<Record<string, string>>({});
 
   async function load() {
     const status = statusMap[filter];
@@ -44,6 +45,23 @@ export default function FuncionariosPage() {
     });
     setBusyId(null);
     load();
+  }
+
+  async function redefinirSenha(id: string, fullName: string) {
+    if (!confirm(`Gerar uma nova senha temporária para ${fullName}? A senha atual dela deixará de funcionar.`)) {
+      return;
+    }
+    setBusyId(id);
+    const res = await fetch(`/api/employees/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "REDEFINIR_SENHA" }),
+    });
+    setBusyId(null);
+    if (res.ok) {
+      const data = await res.json();
+      setTempPasswords((prev) => ({ ...prev, [id]: data.tempPassword }));
+    }
   }
 
   return (
@@ -112,15 +130,35 @@ export default function FuncionariosPage() {
                   </>
                 )}
                 {emp.status === "ATIVO" && (
-                  <button
-                    disabled={busyId === emp.id}
-                    onClick={() => act(emp.id, "DESATIVAR")}
-                    className="btn-secondary flex-1 text-sm"
-                  >
-                    Desativar funcionário
-                  </button>
+                  <>
+                    <button
+                      disabled={busyId === emp.id}
+                      onClick={() => redefinirSenha(emp.id, emp.fullName)}
+                      className="btn-secondary flex-1 text-sm"
+                    >
+                      Redefinir senha
+                    </button>
+                    <button
+                      disabled={busyId === emp.id}
+                      onClick={() => act(emp.id, "DESATIVAR")}
+                      className="btn-secondary flex-1 text-sm"
+                    >
+                      Desativar
+                    </button>
+                  </>
                 )}
               </div>
+
+              {tempPasswords[emp.id] && (
+                <div className="mt-3 rounded-card bg-oliva-50 p-3">
+                  <p className="mb-1 text-xs font-semibold text-oliva-500">Senha temporária gerada</p>
+                  <p className="font-mono text-lg text-carvao-900">{tempPasswords[emp.id]}</p>
+                  <p className="mt-1 text-xs text-carvao-500">
+                    Repasse por WhatsApp — ela substitui a senha anterior e não fica salva em nenhum
+                    outro lugar.
+                  </p>
+                </div>
+              )}
             </div>
           );
         })}
