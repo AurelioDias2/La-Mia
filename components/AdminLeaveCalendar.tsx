@@ -38,6 +38,9 @@ export function AdminLeaveCalendar() {
   const [entries, setEntries] = useState<LeaveEntry[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [changingDateId, setChangingDateId] = useState<string | null>(null);
+  const [newDateValue, setNewDateValue] = useState("");
+  const [changeError, setChangeError] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch(`/api/admin/leave-requests?month=${month}`);
@@ -60,6 +63,31 @@ export function AdminLeaveCalendar() {
     });
     setBusyId(null);
     load();
+  }
+
+  function abrirMudarData(id: string, dataAtual: string) {
+    setChangingDateId(id);
+    setNewDateValue(dataAtual);
+    setChangeError(null);
+  }
+
+  async function confirmarMudarData(id: string) {
+    if (!newDateValue) return;
+    setBusyId(id);
+    setChangeError(null);
+    const res = await fetch(`/api/leave-requests/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "ALTERAR_DATA", date: newDateValue }),
+    });
+    setBusyId(null);
+    if (res.ok) {
+      setChangingDateId(null);
+      load();
+    } else {
+      const data = await res.json().catch(() => null);
+      setChangeError(data?.error ?? "Não foi possível mudar a data.");
+    }
   }
 
   const [year, m] = month.split("-").map(Number);
@@ -183,16 +211,52 @@ export function AdminLeaveCalendar() {
                     </span>
                   </p>
                 </div>
-                {(e.status === "PENDENTE" || e.status === "APROVADA") && (
-                  <button
-                    disabled={busyId === e.id}
-                    onClick={() => cancelarDireto(e.id)}
-                    className="shrink-0 text-xs font-semibold text-vinho-500 hover:underline"
-                  >
-                    Cancelar
-                  </button>
+                {(e.status === "PENDENTE" || e.status === "APROVADA") && changingDateId !== e.id && (
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <button
+                      onClick={() => abrirMudarData(e.id, e.date)}
+                      className="text-xs font-semibold text-carvao-700 hover:underline"
+                    >
+                      Mudar data
+                    </button>
+                    <button
+                      disabled={busyId === e.id}
+                      onClick={() => cancelarDireto(e.id)}
+                      className="text-xs font-semibold text-vinho-500 hover:underline"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
                 )}
               </div>
+
+              {changingDateId === e.id && (
+                <div className="mt-3 space-y-2">
+                  <input
+                    type="date"
+                    className="field-input"
+                    value={newDateValue}
+                    onChange={(ev) => setNewDateValue(ev.target.value)}
+                  />
+                  {changeError && <p className="text-xs text-vinho-500">{changeError}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      disabled={busyId === e.id || !newDateValue}
+                      onClick={() => confirmarMudarData(e.id)}
+                      className="btn-primary flex-1 text-xs"
+                    >
+                      Confirmar nova data
+                    </button>
+                    <button
+                      disabled={busyId === e.id}
+                      onClick={() => setChangingDateId(null)}
+                      className="btn-secondary flex-1 text-xs"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

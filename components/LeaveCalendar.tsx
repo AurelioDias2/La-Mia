@@ -8,12 +8,20 @@ type DayStatus = {
   motivo: string;
   mensagem: string;
   ocupadas: number;
-  limite: number;
+  limite: number | null;
 };
 
+function ocupacaoTexto(d: DayStatus): string {
+  if (d.ocupadas === 0) return "";
+  return d.limite === null
+    ? `${d.ocupadas} pessoa${d.ocupadas > 1 ? "s" : ""} já ${d.ocupadas > 1 ? "escolheram" : "escolheu"} esse dia.`
+    : `${d.ocupadas} de ${d.limite} vaga${d.limite > 1 ? "s" : ""} já ocupada${d.ocupadas > 1 ? "s" : ""}.`;
+}
+
 function tituloDia(d: DayStatus): string {
-  const ocupacao = d.ocupadas > 0 ? ` (${d.ocupadas} de ${d.limite} vaga${d.limite > 1 ? "s" : ""} já ocupada${d.ocupadas > 1 ? "s" : ""})` : "";
-  return (d.disponivel ? "Disponível" : d.mensagem) + ocupacao;
+  const base = d.disponivel ? "Disponível" : d.mensagem;
+  const ocupacao = ocupacaoTexto(d);
+  return ocupacao ? `${base} (${ocupacao.replace(/\.$/, "")})` : base;
 }
 
 const motivoEmoji: Record<string, string> = {
@@ -27,6 +35,7 @@ const motivoEmoji: Record<string, string> = {
   FUNCIONARIO_INATIVO: "🔒",
   SOLICITACAO_EXISTENTE: "⏳",
   FUNCAO_FECHADA_NO_DIA: "🏠",
+  DIA_ALTA_DEMANDA: "🔥",
 };
 
 const DIAS_SEMANA = ["D", "S", "T", "Q", "Q", "S", "S"];
@@ -176,8 +185,7 @@ export function LeaveCalendar({
         <p className="mt-3 text-sm text-carvao-700">
           {motivoEmoji[selected.motivo] ?? "🟢"} Dia {Number(selected.date.slice(-2))} de {MESES[m - 1]}{" "}
           selecionado.
-          {selected.ocupadas > 0 &&
-            ` ${selected.ocupadas} de ${selected.limite} vaga${selected.limite > 1 ? "s" : ""} já ocupada${selected.ocupadas > 1 ? "s" : ""} nesse dia.`}
+          {selected.ocupadas > 0 && ` ${ocupacaoTexto(selected)}`}
         </p>
       )}
       {feedback && <p className="mt-3 text-sm text-carvao-700">{feedback}</p>}

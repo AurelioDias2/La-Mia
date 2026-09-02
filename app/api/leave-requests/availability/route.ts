@@ -39,7 +39,9 @@ export async function GET(req: Request) {
   const settings = await prisma.settings.findUnique({ where: { id: 1 } });
   const holdsSlot = settings?.pendingRequestHoldsSlot ?? true;
   const concurrentStatuses = holdsSlot ? (["PENDENTE", "APROVADA"] as const) : (["APROVADA"] as const);
-  const limite = jobFunction?.dailyLeaveLimit ?? 1;
+  // Domingo do mês não tem limite de vagas (a Direção decide na aprovação),
+  // então não faz sentido mostrar "de N vagas" pra esse tipo.
+  const limite = type === "DOMINGO_MES" ? null : (jobFunction?.dailyLeaveLimit ?? 1);
 
   const days = [];
   for (let day = 1; day <= daysInMonth; day++) {

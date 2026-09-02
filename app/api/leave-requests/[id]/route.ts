@@ -9,7 +9,8 @@ type Action =
   | "SOLICITAR_CANCELAMENTO"
   | "APROVAR_CANCELAMENTO"
   | "RECUSAR_CANCELAMENTO"
-  | "CANCELAR_DIRETO";
+  | "CANCELAR_DIRETO"
+  | "ALTERAR_DATA";
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const body = await req.json();
@@ -18,7 +19,52 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (action === "SOLICITAR_CANCELAMENTO") {
     return handleEmployeeCancelRequest(params.id);
   }
+  if (action === "ALTERAR_DATA") {
+    return handleAlterarData(params.id, body.date as string);
+  }
   return handleDirectorDecision(params.id, action);
+}
+
+// Diretor muda a data de uma folga já pedida (pendente ou aprovada) — ex:
+// realocar alguém pra um domingo com menos gente. Ignora de propósito a
+// checagem de "conflito de função" (é uma decisão manual da Direção), mas
+// mantém a regra de que domingo do mês só pode cair num domingo de verdade.
+async function handleAlterarData(id: string, newDateStr: string) {
+  const { session, error } = await requireDirector();
+  if (error) return NextResponse.json({ error }, { status: 401 });
+
+  if (!newDateStr) {
+    return NextResponse.json({ error: "Informe a nova data." }, { status: 400 });
+  }
+
+  const leaveRequest = await prisma.leaveRequest.findUnique({ where: { id } });
+  if (!leaveRequest) return NextResponse.json({ error: "NAO_ENCONTRADO" }, { status: 404 });
+  if (leaveRequest.status !== "PENDENTE" && leaveRequest.status !== "APROVADA") {
+    return NextResponse.json(
+      { error: "Só é possível mudar a data de uma folga pendente ou aprovada." },
+      { status: 400 }
+    );
+  }
+
+  const newDate = new Date(`${newDateStr}T00:00:00.000Z`);
+  if (leaveRequest.type === "DOMINGO_MES" && newDate.getUTCDay() !== 0) {
+    return NextResponse.json({ error: "A nova data precisa ser um domingo." }, { status: 400 });
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const oldDate = leaveRequest.date;
+    const r = await tx.leaveRequest.update({ where: { id }, data: { date: newDate } });
+    await logAudit(tx, {
+      actorId: session!.user.id,
+      action: "LEAVE_DATE_CHANGED_BY_DIRECTOR",
+      targetType: "LeaveRequest",
+      targetId: id,
+      metadata: { oldDate: oldDate.toISOString(), newDate: newDate.toISOString() },
+    });
+    return r;
+  });
+
+  return NextResponse.json(updated);
 }
 
 // Funcionário pede cancelamento de uma folga já aprovada (seção 38).

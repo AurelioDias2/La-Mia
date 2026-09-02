@@ -158,6 +158,49 @@ describe("verificarDisponibilidade", () => {
     expect(result.motivo).toBe("CONFLITO_FUNCAO");
   });
 
+  it("permite mais de uma pessoa da mesma função escolher o mesmo domingo do mês", async () => {
+    const funcao = await criarFuncao({ dailyLeaveLimit: 1 });
+    const { employee: ocupante } = await criarFuncionario({ jobFunctionId: funcao.id });
+    const { employee: segundo } = await criarFuncionario({ jobFunctionId: funcao.id });
+    await prisma.leaveRequest.create({
+      data: {
+        employeeId: ocupante.id,
+        jobFunctionId: funcao.id,
+        type: "DOMINGO_MES",
+        date: DOMINGO,
+        status: "APROVADA",
+      },
+    });
+
+    // A Direção decide na hora de aprovar, não a checagem automática —
+    // o limite diário da função não vale para domingo do mês.
+    const result = await verificarDisponibilidade(prisma, {
+      employeeId: segundo.id,
+      jobFunctionId: funcao.id,
+      date: DOMINGO,
+      type: "DOMINGO_MES",
+    });
+
+    expect(result.disponivel).toBe(true);
+    expect(result.motivo).toBe("DISPONIVEL");
+  });
+
+  it("recusa compensatória em dias de alta demanda (sexta, sábado, domingo)", async () => {
+    const funcao = await criarFuncao();
+    const { employee } = await criarFuncionario({ jobFunctionId: funcao.id });
+    const sextaFeira = new Date(Date.UTC(2026, 7, 21)); // 21/08/2026 é sexta
+
+    const result = await verificarDisponibilidade(prisma, {
+      employeeId: employee.id,
+      jobFunctionId: funcao.id,
+      date: sextaFeira,
+      type: "COMPENSATORIA",
+    });
+
+    expect(result.disponivel).toBe(false);
+    expect(result.motivo).toBe("DIA_ALTA_DEMANDA");
+  });
+
   it("retorna SEM_CREDITO quando o saldo disponível de compensatória é zero", async () => {
     const funcao = await criarFuncao();
     const { employee } = await criarFuncionario({ jobFunctionId: funcao.id });

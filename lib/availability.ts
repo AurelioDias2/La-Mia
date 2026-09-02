@@ -13,7 +13,14 @@ export type AvailabilityReasonCode =
   | "DIA_INVALIDO"
   | "FUNCIONARIO_INATIVO"
   | "SOLICITACAO_EXISTENTE"
-  | "FUNCAO_FECHADA_NO_DIA";
+  | "FUNCAO_FECHADA_NO_DIA"
+  | "DIA_ALTA_DEMANDA";
+
+// Dias de alta demanda em que compensatória não pode ser usada (0=domingo,
+// 5=sexta, 6=sábado). Sextas e fins de semana são os dias de maior movimento
+// da padaria — a compensatória concedida pela Direção não pode "esvaziar" a
+// equipe justamente nesses dias.
+const DIAS_ALTA_DEMANDA_COMPENSATORIA = [0, 5, 6];
 
 export interface AvailabilityResult {
   disponivel: boolean;
@@ -79,6 +86,15 @@ export async function verificarDisponibilidade(
     return fail("FUNCAO_FECHADA_NO_DIA", "Sua função não abre folgas nesse dia da semana.");
   }
 
+  // 2.2. Compensatória não pode ser usada em sexta/sábado/domingo — são os
+  // dias de maior movimento da loja.
+  if (params.type === LeaveType.COMPENSATORIA && DIAS_ALTA_DEMANDA_COMPENSATORIA.includes(data.getUTCDay())) {
+    return fail(
+      "DIA_ALTA_DEMANDA",
+      "Compensatória não pode ser usada às sextas, sábados ou domingos (dias de alta demanda)."
+    );
+  }
+
   // Para DOMINGO_MES, a data escolhida precisa realmente ser domingo.
   if (params.type === LeaveType.DOMINGO_MES && data.getUTCDay() !== 0) {
     return fail("DIA_INVALIDO", "A data escolhida não é um domingo.");
@@ -132,18 +148,24 @@ export async function verificarDisponibilidade(
   }
 
   // 7. Conflito de função: limite de folgas simultâneas por dia por função
-  //    (seção 14 e 49 — configurável, padrão 1).
-  const holdsSlot = settings?.pendingRequestHoldsSlot ?? true;
-  const concurrentStatuses = holdsSlot ? (["PENDENTE", "APROVADA"] as const) : (["APROVADA"] as const);
-  const sameDayFunctionCount = await tx.leaveRequest.count({
-    where: {
-      jobFunctionId: params.jobFunctionId,
-      date: data,
-      status: { in: [...concurrentStatuses] },
-    },
-  });
-  if (sameDayFunctionCount >= jobFunction.dailyLeaveLimit) {
-    return fail("CONFLITO_FUNCAO", "Indisponível para sua função nesta data.");
+  //    (seção 14 e 49 — configurável, padrão 1). O domingo do mês não entra
+  //    nessa trava: várias pessoas podem pedir o mesmo domingo, e quem decide
+  //    se dá pra aprovar todo mundo (ou só parte) é sempre a Direção na hora
+  //    de aprovar — o calendário já mostra pra cada funcionário quantas
+  //    pessoas escolheram aquele dia, pra ela poder preferir outra data.
+  if (params.type !== LeaveType.DOMINGO_MES) {
+    const holdsSlot = settings?.pendingRequestHoldsSlot ?? true;
+    const concurrentStatuses = holdsSlot ? (["PENDENTE", "APROVADA"] as const) : (["APROVADA"] as const);
+    const sameDayFunctionCount = await tx.leaveRequest.count({
+      where: {
+        jobFunctionId: params.jobFunctionId,
+        date: data,
+        status: { in: [...concurrentStatuses] },
+      },
+    });
+    if (sameDayFunctionCount >= jobFunction.dailyLeaveLimit) {
+      return fail("CONFLITO_FUNCAO", "Indisponível para sua função nesta data.");
+    }
   }
 
   // 8. Para COMPENSATORIA / EXTRA: saldo disponível (não reservado) > 0.

@@ -38,6 +38,8 @@ export default function FichaFuncionarioPage({ params }: { params: { id: string 
   const [correctReason, setCorrectReason] = useState("");
   const [correctError, setCorrectError] = useState<string | null>(null);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [editingPrincipal, setEditingPrincipal] = useState(false);
+  const [principalId, setPrincipalId] = useState("");
 
   async function load() {
     const [d, fns] = await Promise.all([
@@ -52,6 +54,19 @@ export default function FichaFuncionarioPage({ params }: { params: { id: string 
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function alterarPrincipal() {
+    if (!principalId) return;
+    setBusy(true);
+    await fetch(`/api/employees/${params.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "ALTERAR_FUNCAO_PRINCIPAL", jobFunctionId: principalId }),
+    });
+    setBusy(false);
+    setEditingPrincipal(false);
+    load();
+  }
 
   async function adicionarSecundaria() {
     if (!secondaryId) return;
@@ -143,7 +158,51 @@ export default function FichaFuncionarioPage({ params }: { params: { id: string 
 
       <div className="card mb-4 space-y-1 text-sm">
         <p className="text-carvao-500">WhatsApp: {detail.whatsapp}</p>
-        <p className="text-carvao-500">Função principal: {principal ?? "—"}</p>
+        {!editingPrincipal ? (
+          <p className="text-carvao-500">
+            Função principal: {principal ?? "—"}{" "}
+            <button
+              onClick={() => {
+                setPrincipalId("");
+                setEditingPrincipal(true);
+              }}
+              className="text-xs font-semibold text-vinho-500 hover:underline"
+            >
+              Alterar
+            </button>
+          </p>
+        ) : (
+          <div className="flex items-center gap-2 py-1">
+            <select
+              className="field-input py-1.5 text-sm"
+              value={principalId}
+              onChange={(e) => setPrincipalId(e.target.value)}
+            >
+              <option value="">Selecionar</option>
+              {jobFunctions
+                .filter((f) => f.name !== principal)
+                .map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+            </select>
+            <button
+              disabled={busy || !principalId}
+              onClick={alterarPrincipal}
+              className="btn-primary shrink-0 px-3 py-1.5 text-xs"
+            >
+              Confirmar
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => setEditingPrincipal(false)}
+              className="btn-secondary shrink-0 px-3 py-1.5 text-xs"
+            >
+              Cancelar
+            </button>
+          </div>
+        )}
         <p className="text-carvao-500">Função secundária: {secundaria ?? "Nenhuma"}</p>
         {detail.nextLeave && (
           <p className="text-carvao-500">
