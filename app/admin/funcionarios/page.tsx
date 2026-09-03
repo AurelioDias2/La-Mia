@@ -36,7 +36,7 @@ export default function FuncionariosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
-  async function act(id: string, action: "APROVAR" | "RECUSAR" | "DESATIVAR") {
+  async function act(id: string, action: "APROVAR" | "RECUSAR" | "DESATIVAR" | "REATIVAR") {
     setBusyId(id);
     await fetch(`/api/employees/${id}`, {
       method: "PATCH",
@@ -146,6 +146,15 @@ export default function FuncionariosPage() {
                       Desativar
                     </button>
                   </>
+                )}
+                {emp.status === "INATIVO" && (
+                  <button
+                    disabled={busyId === emp.id}
+                    onClick={() => act(emp.id, "REATIVAR")}
+                    className="btn-primary flex-1 text-sm"
+                  >
+                    Reativar
+                  </button>
                 )}
               </div>
 

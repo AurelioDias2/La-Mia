@@ -136,6 +136,20 @@ export default function FichaFuncionarioPage({ params }: { params: { id: string 
     load();
   }
 
+  async function reativar() {
+    if (!confirm(`Reativar ${detail?.fullName}? Ela volta a ter acesso ao sistema.`)) {
+      return;
+    }
+    setBusy(true);
+    await fetch(`/api/employees/${params.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "REATIVAR" }),
+    });
+    setBusy(false);
+    load();
+  }
+
   if (!detail) return <p className="text-carvao-500">Carregando…</p>;
 
   const principal = detail.functions.find((f) => f.role === "PRINCIPAL")?.jobFunction.name;
@@ -369,6 +383,11 @@ export default function FichaFuncionarioPage({ params }: { params: { id: string 
         {detail.status === "ATIVO" && (
           <button disabled={busy} onClick={desativar} className="btn-secondary block w-full text-vinho-500">
             Desativar funcionário
+          </button>
+        )}
+        {detail.status === "INATIVO" && (
+          <button disabled={busy} onClick={reativar} className="btn-primary block w-full">
+            Reativar funcionário
           </button>
         )}
       </div>

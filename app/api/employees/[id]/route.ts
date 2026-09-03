@@ -40,6 +40,7 @@ type Action =
   | { action: "APROVAR" }
   | { action: "RECUSAR" }
   | { action: "DESATIVAR" }
+  | { action: "REATIVAR" }
   | { action: "ALTERAR_FUNCAO_PRINCIPAL"; jobFunctionId: string }
   | { action: "ADICIONAR_FUNCAO_SECUNDARIA"; jobFunctionId: string }
   | { action: "REDEFINIR_SENHA" };
@@ -94,6 +95,21 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         await logAudit(tx, {
           actorId: session!.user.id,
           action: "EMPLOYEE_DEACTIVATED",
+          targetType: "Employee",
+          targetId: params.id,
+        });
+        return updated;
+      }
+      case "REATIVAR": {
+        if (employee.status !== "INATIVO") throw new Error("Só é possível reativar quem está inativo.");
+        await tx.user.update({ where: { id: employee.userId }, data: { status: "ATIVO" } });
+        const updated = await tx.employee.update({
+          where: { id: params.id },
+          data: { status: "ATIVO", deactivatedAt: null },
+        });
+        await logAudit(tx, {
+          actorId: session!.user.id,
+          action: "EMPLOYEE_REACTIVATED",
           targetType: "Employee",
           targetId: params.id,
         });
