@@ -132,6 +132,12 @@ model JobFunction {
   name      String   @unique // ex: "Forno/Assamento"
   active    Boolean  @default(true)
 
+  // Agrupa várias funções sob o mesmo setor pra Direção conseguir separar o
+  // calendário por setor (ex: Forno/Assamento, Ensacamento e Montagem de
+  // pedidos/Nota são todas do setor "Pronta Entrega"; Produção e Serviços
+  // Gerais são setores de uma função só cada).
+  sector String @default("Pronta Entrega")
+
   // Limite de folgas simultâneas por dia para esta função (seção 49).
   // Valor inicial 1 = regra "nunca duas pessoas da mesma função" (seção 14).
   dailyLeaveLimit Int @default(1)

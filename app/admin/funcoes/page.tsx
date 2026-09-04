@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 type JobFunction = {
   id: string;
   name: string;
+  sector: string;
   active: boolean;
   dailyLeaveLimit: number;
   closedWeekday: number | null;
@@ -24,10 +25,11 @@ const DIAS_SEMANA = [
 export default function FuncoesPage() {
   const [functions, setFunctions] = useState<JobFunction[]>([]);
   const [newName, setNewName] = useState("");
+  const [newSector, setNewSector] = useState("");
   const [creating, setCreating] = useState(false);
 
   async function load() {
-    const res = await fetch("/api/job-functions");
+    const res = await fetch("/api/job-functions?all=1");
     setFunctions(await res.json());
   }
 
@@ -35,16 +37,28 @@ export default function FuncoesPage() {
     load();
   }, []);
 
+  const setoresConhecidos = Array.from(new Set(functions.map((f) => f.sector))).sort();
+
   async function criar(e: React.FormEvent) {
     e.preventDefault();
     setCreating(true);
     await fetch("/api/job-functions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName, dailyLeaveLimit: 1 }),
+      body: JSON.stringify({ name: newName, sector: newSector || undefined, dailyLeaveLimit: 1 }),
     });
     setCreating(false);
     setNewName("");
+    setNewSector("");
+    load();
+  }
+
+  async function atualizarSetor(id: string, sector: string) {
+    await fetch(`/api/job-functions/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sector }),
+    });
     load();
   }
 
@@ -97,6 +111,18 @@ export default function FuncoesPage() {
                 {f.active ? "ATIVA" : "INATIVA"}
               </span>
             </div>
+            <div className="mt-2">
+              <label className="field-label" htmlFor={`setor-${f.id}`}>
+                Setor (agrupa no calendário e na lista de folgas)
+              </label>
+              <input
+                id={`setor-${f.id}`}
+                list="setores-conhecidos"
+                className="field-input"
+                defaultValue={f.sector}
+                onBlur={(e) => e.target.value.trim() && atualizarSetor(f.id, e.target.value.trim())}
+              />
+            </div>
             <div className="mt-3 flex items-center justify-between gap-3">
               <label className="flex items-center gap-2 text-sm text-carvao-600">
                 Limite de folgas simultâneas por dia
@@ -148,16 +174,41 @@ export default function FuncoesPage() {
         ))}
       </div>
 
+      <datalist id="setores-conhecidos">
+        {setoresConhecidos.map((s) => (
+          <option key={s} value={s} />
+        ))}
+      </datalist>
+
       <h2 className="mb-3 font-display text-lg font-semibold text-vinho-500">+ Nova função</h2>
-      <form onSubmit={criar} className="card flex gap-2">
-        <input
-          className="field-input"
-          placeholder="Ex: Atendimento"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          required
-        />
-        <button disabled={creating} className="btn-primary shrink-0">
+      <form onSubmit={criar} className="card space-y-3">
+        <div>
+          <label className="field-label" htmlFor="novo-nome">
+            Nome
+          </label>
+          <input
+            id="novo-nome"
+            className="field-input"
+            placeholder="Ex: Atendimento"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <label className="field-label" htmlFor="novo-setor">
+            Setor
+          </label>
+          <input
+            id="novo-setor"
+            list="setores-conhecidos"
+            className="field-input"
+            placeholder="Ex: Pronta Entrega"
+            value={newSector}
+            onChange={(e) => setNewSector(e.target.value)}
+          />
+        </div>
+        <button disabled={creating} className="btn-primary w-full">
           {creating ? "Criando…" : "Criar"}
         </button>
       </form>

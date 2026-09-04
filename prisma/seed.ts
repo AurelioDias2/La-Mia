@@ -35,17 +35,18 @@ async function main() {
   // Produção trabalha todos os dias, inclusive na segunda-feira de
   // fechamento fixo da loja (só a Pronta Entrega não trabalha nesse dia) —
   // por isso followsStoreClosure: false só pra ela.
-  const initialFunctions: { name: string; followsStoreClosure: boolean }[] = [
-    { name: "Forno/Assamento", followsStoreClosure: true },
-    { name: "Ensacamento", followsStoreClosure: true },
-    { name: "Montagem de pedidos/Nota", followsStoreClosure: true },
-    { name: "Produção", followsStoreClosure: false },
+  const initialFunctions: { name: string; sector: string; followsStoreClosure: boolean }[] = [
+    { name: "Forno/Assamento", sector: "Pronta Entrega", followsStoreClosure: true },
+    { name: "Ensacamento", sector: "Pronta Entrega", followsStoreClosure: true },
+    { name: "Montagem de pedidos/Nota", sector: "Pronta Entrega", followsStoreClosure: true },
+    { name: "Produção", sector: "Produção", followsStoreClosure: false },
+    { name: "Serviços Gerais", sector: "Serviços Gerais", followsStoreClosure: true },
   ];
-  for (const { name, followsStoreClosure } of initialFunctions) {
+  for (const { name, sector, followsStoreClosure } of initialFunctions) {
     await prisma.jobFunction.upsert({
       where: { name },
       update: {},
-      create: { name, active: true, dailyLeaveLimit: 1, followsStoreClosure },
+      create: { name, sector, active: true, dailyLeaveLimit: 1, followsStoreClosure },
     });
   }
   console.log("Funções iniciais garantidas.");

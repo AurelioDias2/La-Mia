@@ -4,8 +4,18 @@ import { requireDirector } from "@/lib/session";
 import { jobFunctionSchema } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
 
-// Público (sem auth): a tela de cadastro precisa listar as funções ativas.
-export async function GET() {
+// Público (sem auth) por padrão: a tela de cadastro precisa listar as funções
+// ativas. Com ?all=1 (só Diretor), lista todas — inclusive inativas, pra tela
+// "Funções" conseguir mostrar o botão "Reativar".
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  if (searchParams.get("all")) {
+    const { error } = await requireDirector();
+    if (error) return NextResponse.json({ error }, { status: 401 });
+    const all = await prisma.jobFunction.findMany({ orderBy: { name: "asc" } });
+    return NextResponse.json(all);
+  }
+
   const functions = await prisma.jobFunction.findMany({
     where: { active: true },
     orderBy: { name: "asc" },

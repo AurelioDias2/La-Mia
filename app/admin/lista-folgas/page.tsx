@@ -9,6 +9,7 @@ type LeaveEntry = {
   status: string;
   employeeName: string;
   jobFunctionName: string;
+  sector: string;
 };
 
 const typeLabel: Record<LeaveEntry["type"], string> = {
@@ -41,6 +42,7 @@ export default function ListaFolgasPage() {
   const [entries, setEntries] = useState<LeaveEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<(typeof filtros)[number]>("Ativas");
+  const [setorFiltro, setSetorFiltro] = useState<string>("Todos");
 
   useEffect(() => {
     fetch("/api/admin/leave-requests")
@@ -51,8 +53,11 @@ export default function ListaFolgasPage() {
       });
   }, []);
 
+  const setores = ["Todos", ...Array.from(new Set(entries.map((e) => e.sector))).sort()];
+
   const visiveis = entries
     .filter((e) => filtro === "Todas" || (e.status !== "CANCELADA" && e.status !== "RECUSADA"))
+    .filter((e) => setorFiltro === "Todos" || e.sector === setorFiltro)
     .sort((a, b) => a.date.localeCompare(b.date));
 
   return (
@@ -62,7 +67,7 @@ export default function ListaFolgasPage() {
         Todo mundo que já pediu folga, com data, função e status — em ordem cronológica.
       </p>
 
-      <div className="mb-5 flex gap-2">
+      <div className="mb-3 flex gap-2">
         {filtros.map((f) => (
           <button
             key={f}
@@ -75,6 +80,24 @@ export default function ListaFolgasPage() {
           </button>
         ))}
       </div>
+
+      {setores.length > 2 && (
+        <div className="mb-5 flex gap-2 overflow-x-auto">
+          {setores.map((s) => (
+            <button
+              key={s}
+              onClick={() => setSetorFiltro(s)}
+              className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${
+                setorFiltro === s
+                  ? "bg-vinho-500 text-crosta-50"
+                  : "border border-carvao-100 bg-white text-carvao-600"
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading && <p className="text-carvao-500">Carregando…</p>}
       {!loading && visiveis.length === 0 && (

@@ -9,6 +9,7 @@ type LeaveEntry = {
   status: string;
   employeeName: string;
   jobFunctionName: string;
+  sector: string;
 };
 
 const typeLabel: Record<LeaveEntry["type"], string> = {
@@ -41,6 +42,7 @@ export function AdminLeaveCalendar() {
   const [changingDateId, setChangingDateId] = useState<string | null>(null);
   const [newDateValue, setNewDateValue] = useState("");
   const [changeError, setChangeError] = useState<string | null>(null);
+  const [sectorFilter, setSectorFilter] = useState<string>("Todos");
 
   async function load() {
     const res = await fetch(`/api/admin/leave-requests?month=${month}`);
@@ -95,8 +97,12 @@ export function AdminLeaveCalendar() {
   const monthLabel = `${MESES[m - 1]} de ${year}`;
   const daysInMonth = new Date(Date.UTC(year, m, 0)).getUTCDate();
 
+  const setores = ["Todos", ...Array.from(new Set(entries.map((e) => e.sector))).sort()];
+  const entriesDoSetor =
+    sectorFilter === "Todos" ? entries : entries.filter((e) => e.sector === sectorFilter);
+
   const entriesByDate = new Map<string, LeaveEntry[]>();
-  for (const e of entries) {
+  for (const e of entriesDoSetor) {
     const ativas = e.status !== "CANCELADA" && e.status !== "RECUSADA";
     if (!ativas) continue;
     const list = entriesByDate.get(e.date) ?? [];
@@ -135,6 +141,27 @@ export function AdminLeaveCalendar() {
           Próximo →
         </button>
       </div>
+
+      {setores.length > 2 && (
+        <div className="mb-3 flex gap-2 overflow-x-auto">
+          {setores.map((s) => (
+            <button
+              key={s}
+              onClick={() => {
+                setSectorFilter(s);
+                setSelectedDate(null);
+              }}
+              className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${
+                sectorFilter === s
+                  ? "bg-vinho-500 text-crosta-50"
+                  : "border border-carvao-100 bg-white text-carvao-600"
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-7 gap-1 text-center">
         {DIAS_SEMANA.map((d, i) => (

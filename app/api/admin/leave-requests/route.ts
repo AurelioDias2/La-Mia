@@ -34,6 +34,7 @@ export async function GET(req: Request) {
       status: r.status,
       employeeName: r.employee.fullName,
       jobFunctionName: r.jobFunction.name,
+      sector: r.jobFunction.sector,
     }))
   );
 }

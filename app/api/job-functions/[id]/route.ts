@@ -13,6 +13,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     name?: string;
     closedWeekday?: number | null;
     followsStoreClosure?: boolean;
+    sector?: string;
   };
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -24,6 +25,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         name: body.name,
         closedWeekday: body.closedWeekday,
         followsStoreClosure: body.followsStoreClosure,
+        sector: body.sector,
       },
     });
     await logAudit(tx, {
