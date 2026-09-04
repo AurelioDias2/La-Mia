@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AdminLeaveCalendar } from "@/components/AdminLeaveCalendar";
+import { AssignLeaveTool } from "@/components/AssignLeaveTool";
 
 type BlockedDate = { id: string; date: string; reason: string };
 
@@ -41,6 +42,10 @@ export default function CalendarioPage() {
           Folgas do mês
         </h1>
         <AdminLeaveCalendar />
+      </div>
+
+      <div>
+        <AssignLeaveTool />
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">

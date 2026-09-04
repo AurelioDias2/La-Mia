@@ -33,6 +33,23 @@ const MESES = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
+const TITULO_RELATORIO: Record<LeaveEntry["type"], string> = {
+  COMPENSATORIA: "FOLGAS COMPENSATÓRIAS",
+  EXTRA: "FOLGAS EXTRAS",
+  DOMINGO_MES: "DOMINGO DO MÊS",
+};
+const ORDEM_RELATORIO: LeaveEntry["type"][] = ["COMPENSATORIA", "EXTRA", "DOMINGO_MES"];
+
+function primeiroNome(nomeCompleto: string): string {
+  return nomeCompleto.trim().split(/\s+/)[0];
+}
+
+function juntarNomes(nomes: string[]): string {
+  if (nomes.length === 1) return nomes[0];
+  if (nomes.length === 2) return `${nomes[0]} e ${nomes[1]}`;
+  return `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
+}
+
 export function AdminLeaveCalendar() {
   const now = new Date();
   const [month, setMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
@@ -43,6 +60,8 @@ export function AdminLeaveCalendar() {
   const [newDateValue, setNewDateValue] = useState("");
   const [changeError, setChangeError] = useState<string | null>(null);
   const [sectorFilter, setSectorFilter] = useState<string>("Todos");
+  const [relatorio, setRelatorio] = useState<string | null>(null);
+  const [copiado, setCopiado] = useState(false);
 
   async function load() {
     const res = await fetch(`/api/admin/leave-requests?month=${month}`);
@@ -52,6 +71,7 @@ export function AdminLeaveCalendar() {
   useEffect(() => {
     load();
     setSelectedDate(null);
+    setRelatorio(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month]);
 
@@ -90,6 +110,41 @@ export function AdminLeaveCalendar() {
       const data = await res.json().catch(() => null);
       setChangeError(data?.error ?? "Não foi possível mudar a data.");
     }
+  }
+
+  function gerarRelatorio() {
+    const aprovadas = entriesDoSetor.filter((e) => e.status === "APROVADA");
+    const porTipo = new Map<LeaveEntry["type"], Map<string, string[]>>();
+    for (const e of aprovadas) {
+      if (!porTipo.has(e.type)) porTipo.set(e.type, new Map());
+      const porData = porTipo.get(e.type)!;
+      const nomes = porData.get(e.date) ?? [];
+      nomes.push(primeiroNome(e.employeeName));
+      porData.set(e.date, nomes);
+    }
+
+    let texto = `Então, ficaram assim as folgas de ${MESES[m - 1].toLowerCase()}${sectorFilter !== "Todos" ? ` (${sectorFilter})` : ""}:\n\n`;
+    let temAlgumaFolga = false;
+    for (const tipo of ORDEM_RELATORIO) {
+      const porData = porTipo.get(tipo);
+      if (!porData || porData.size === 0) continue;
+      temAlgumaFolga = true;
+      texto += `${TITULO_RELATORIO[tipo]}\n`;
+      for (const data of Array.from(porData.keys()).sort()) {
+        const [, mes, dia] = data.split("-");
+        texto += `${dia}/${mes} – ${juntarNomes(porData.get(data)!)}\n`;
+      }
+      texto += "\n";
+    }
+    setRelatorio(temAlgumaFolga ? texto.trim() : "Nenhuma folga aprovada neste mês ainda.");
+    setCopiado(false);
+  }
+
+  async function copiarRelatorio() {
+    if (!relatorio) return;
+    await navigator.clipboard.writeText(relatorio);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
   }
 
   const [year, m] = month.split("-").map(Number);
@@ -150,6 +205,7 @@ export function AdminLeaveCalendar() {
               onClick={() => {
                 setSectorFilter(s);
                 setSelectedDate(null);
+                setRelatorio(null);
               }}
               className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${
                 sectorFilter === s
@@ -209,6 +265,19 @@ export function AdminLeaveCalendar() {
         <span className="inline-block h-2.5 w-2.5 rounded-full bg-crosta-500 align-middle" /> pendente. Toque num dia
         pra ver quem folgou.
       </p>
+
+      <button onClick={gerarRelatorio} className="btn-secondary mt-3 w-full text-sm">
+        Gerar relatório do mês
+      </button>
+
+      {relatorio && (
+        <div className="mt-3 rounded-card border border-carvao-100 bg-crosta-50 p-3">
+          <pre className="whitespace-pre-wrap font-sans text-sm text-carvao-900">{relatorio}</pre>
+          <button onClick={copiarRelatorio} className="btn-primary mt-3 w-full text-sm">
+            {copiado ? "Copiado!" : "Copiar pra enviar no WhatsApp"}
+          </button>
+        </div>
+      )}
 
       {selectedDate && (
         <div className="mt-4 space-y-2">
