@@ -43,6 +43,7 @@ type Action =
   | { action: "REATIVAR" }
   | { action: "ALTERAR_FUNCAO_PRINCIPAL"; jobFunctionId: string }
   | { action: "ADICIONAR_FUNCAO_SECUNDARIA"; jobFunctionId: string }
+  | { action: "ALTERAR_FOLGA_SEMANAL"; weeklyDayOff: number | null }
   | { action: "REDEFINIR_SENHA" };
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
@@ -129,6 +130,23 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
           metadata: { jobFunctionId: body.jobFunctionId },
         });
         return tx.employee.findUnique({ where: { id: params.id }, include: { functions: true } });
+      }
+      case "ALTERAR_FOLGA_SEMANAL": {
+        if (body.weeklyDayOff !== null && (body.weeklyDayOff < 0 || body.weeklyDayOff > 6)) {
+          throw new Error("Dia da semana inválido.");
+        }
+        const updated = await tx.employee.update({
+          where: { id: params.id },
+          data: { weeklyDayOff: body.weeklyDayOff },
+        });
+        await logAudit(tx, {
+          actorId: session!.user.id,
+          action: "EMPLOYEE_WEEKLY_DAY_OFF_CHANGED",
+          targetType: "Employee",
+          targetId: params.id,
+          metadata: { weeklyDayOff: body.weeklyDayOff },
+        });
+        return updated;
       }
       case "ADICIONAR_FUNCAO_SECUNDARIA": {
         // Só o Diretor pode fazer isso (seção 9).

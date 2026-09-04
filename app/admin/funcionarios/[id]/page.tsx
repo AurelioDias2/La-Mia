@@ -24,9 +24,20 @@ type Detail = {
   extra: { total: number; reservado: number; disponivel: number };
   nextLeave: { date: string } | null;
   creditTransactions: CreditTransaction[];
+  weeklyDayOff: number | null;
 };
 
 type JobFunction = { id: string; name: string };
+
+const DIAS_SEMANA_LABEL = [
+  "Domingo",
+  "Segunda-feira",
+  "Terça-feira",
+  "Quarta-feira",
+  "Quinta-feira",
+  "Sexta-feira",
+  "Sábado",
+];
 
 export default function FichaFuncionarioPage({ params }: { params: { id: string } }) {
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -40,6 +51,8 @@ export default function FichaFuncionarioPage({ params }: { params: { id: string 
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [editingPrincipal, setEditingPrincipal] = useState(false);
   const [principalId, setPrincipalId] = useState("");
+  const [editingWeeklyDayOff, setEditingWeeklyDayOff] = useState(false);
+  const [weeklyDayOffValue, setWeeklyDayOffValue] = useState("");
 
   async function load() {
     const [d, fns] = await Promise.all([
@@ -65,6 +78,21 @@ export default function FichaFuncionarioPage({ params }: { params: { id: string 
     });
     setBusy(false);
     setEditingPrincipal(false);
+    load();
+  }
+
+  async function alterarFolgaSemanal() {
+    setBusy(true);
+    await fetch(`/api/employees/${params.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "ALTERAR_FOLGA_SEMANAL",
+        weeklyDayOff: weeklyDayOffValue === "" ? null : Number(weeklyDayOffValue),
+      }),
+    });
+    setBusy(false);
+    setEditingWeeklyDayOff(false);
     load();
   }
 
@@ -218,6 +246,50 @@ export default function FichaFuncionarioPage({ params }: { params: { id: string 
           </div>
         )}
         <p className="text-carvao-500">Função secundária: {secundaria ?? "Nenhuma"}</p>
+        {!editingWeeklyDayOff ? (
+          <p className="text-carvao-500">
+            Folga semanal fixa:{" "}
+            {detail.weeklyDayOff !== null ? DIAS_SEMANA_LABEL[detail.weeklyDayOff] : "Nenhuma"}{" "}
+            <button
+              onClick={() => {
+                setWeeklyDayOffValue(detail.weeklyDayOff !== null ? String(detail.weeklyDayOff) : "");
+                setEditingWeeklyDayOff(true);
+              }}
+              className="text-xs font-semibold text-vinho-500 hover:underline"
+            >
+              Alterar
+            </button>
+          </p>
+        ) : (
+          <div className="flex items-center gap-2 py-1">
+            <select
+              className="field-input py-1.5 text-sm"
+              value={weeklyDayOffValue}
+              onChange={(e) => setWeeklyDayOffValue(e.target.value)}
+            >
+              <option value="">Nenhuma</option>
+              {DIAS_SEMANA_LABEL.map((label, i) => (
+                <option key={i} value={i}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <button
+              disabled={busy}
+              onClick={alterarFolgaSemanal}
+              className="btn-primary shrink-0 px-3 py-1.5 text-xs"
+            >
+              Confirmar
+            </button>
+            <button
+              disabled={busy}
+              onClick={() => setEditingWeeklyDayOff(false)}
+              className="btn-secondary shrink-0 px-3 py-1.5 text-xs"
+            >
+              Cancelar
+            </button>
+          </div>
+        )}
         {detail.nextLeave && (
           <p className="text-carvao-500">
             Próxima folga:{" "}

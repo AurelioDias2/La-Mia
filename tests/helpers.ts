@@ -33,6 +33,7 @@ export async function criarFuncao(
 export async function criarFuncionario(params: {
   jobFunctionId: string;
   status?: "PENDENTE" | "ATIVO" | "INATIVO" | "RECUSADO";
+  weeklyDayOff?: number | null;
 }) {
   const user = await prisma.user.create({
     data: {
@@ -48,6 +49,7 @@ export async function criarFuncionario(params: {
       fullName: "Funcionária de Teste",
       whatsapp: "(98) 90000-0000",
       status: params.status ?? "ATIVO",
+      weeklyDayOff: params.weeklyDayOff ?? null,
       functions: {
         create: { jobFunctionId: params.jobFunctionId, role: "PRINCIPAL" },
       },

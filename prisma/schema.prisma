@@ -115,6 +115,12 @@ model Employee {
   approvedById String?
   deactivatedAt DateTime?
 
+  // Dia da semana fixo de folga (0=domingo...6=sábado), só pra quem não tem
+  // fechamento semanal automático (ex: Produção, Serviços Gerais). Só a
+  // Direção define/altera — não é um pedido de folga, é estrutural: a
+  // pessoa simplesmente não trabalha nesse dia toda semana.
+  weeklyDayOff Int?
+
   functions          EmployeeFunction[]
   leaveRequests      LeaveRequest[]
   creditTransactions LeaveCreditTransaction[]

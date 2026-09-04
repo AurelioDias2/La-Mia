@@ -14,7 +14,8 @@ export type AvailabilityReasonCode =
   | "FUNCIONARIO_INATIVO"
   | "SOLICITACAO_EXISTENTE"
   | "FUNCAO_FECHADA_NO_DIA"
-  | "DIA_ALTA_DEMANDA";
+  | "DIA_ALTA_DEMANDA"
+  | "FOLGA_SEMANAL_FIXA";
 
 // Dias de alta demanda em que compensatória não pode ser usada (0=domingo,
 // 5=sexta, 6=sábado). Sextas e fins de semana são os dias de maior movimento
@@ -84,6 +85,13 @@ export async function verificarDisponibilidade(
   // ter dias de fechamento diferentes — ex: Produção x Pronta Entrega).
   if (jobFunction.closedWeekday !== null && data.getUTCDay() === jobFunction.closedWeekday) {
     return fail("FUNCAO_FECHADA_NO_DIA", "Sua função não abre folgas nesse dia da semana.");
+  }
+
+  // 2.1.1. Folga semanal fixa da pessoa (definida só pela Direção — ex:
+  // escala de Produção/Serviços Gerais). É estrutural, igual ao fechamento
+  // de função: nesse dia ela já não trabalha, não faz sentido pedir folga.
+  if (employee.weeklyDayOff !== null && data.getUTCDay() === employee.weeklyDayOff) {
+    return fail("FOLGA_SEMANAL_FIXA", "Você já folga nesse dia da semana toda semana.");
   }
 
   // 2.2. Compensatória não pode ser usada em sexta/sábado/domingo — são os

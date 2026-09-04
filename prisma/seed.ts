@@ -36,8 +36,11 @@ async function main() {
   // fechamento fixo da loja (só a Pronta Entrega não trabalha nesse dia) —
   // por isso followsStoreClosure: false só pra ela.
   const initialFunctions: { name: string; sector: string; followsStoreClosure: boolean }[] = [
-    { name: "Forno/Assamento", sector: "Pronta Entrega", followsStoreClosure: true },
+    { name: "Atendimento", sector: "Pronta Entrega", followsStoreClosure: true },
+    { name: "Cafeteria", sector: "Pronta Entrega", followsStoreClosure: true },
+    { name: "Delivery", sector: "Pronta Entrega", followsStoreClosure: true },
     { name: "Ensacamento", sector: "Pronta Entrega", followsStoreClosure: true },
+    { name: "Forno/Assamento", sector: "Pronta Entrega", followsStoreClosure: true },
     { name: "Montagem de pedidos/Nota", sector: "Pronta Entrega", followsStoreClosure: true },
     { name: "Produção", sector: "Produção", followsStoreClosure: false },
     { name: "Serviços Gerais", sector: "Serviços Gerais", followsStoreClosure: true },

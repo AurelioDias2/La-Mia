@@ -62,6 +62,8 @@ export function AdminLeaveCalendar() {
   const [sectorFilter, setSectorFilter] = useState<string>("Todos");
   const [relatorio, setRelatorio] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
+  const [sorteando, setSorteando] = useState(false);
+  const [resultadoSorteio, setResultadoSorteio] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch(`/api/admin/leave-requests?month=${month}`);
@@ -72,8 +74,40 @@ export function AdminLeaveCalendar() {
     load();
     setSelectedDate(null);
     setRelatorio(null);
+    setResultadoSorteio(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month]);
+
+  async function sortearDomingos() {
+    if (
+      !confirm(
+        "Sortear o domingo do mês de todo mundo que ainda não tem um esse mês? Distribui aleatoriamente entre os domingos, sem tirar todo mundo de uma função no mesmo dia. Quem já tem um domingo pedido ou atribuído não é afetado."
+      )
+    ) {
+      return;
+    }
+    setSorteando(true);
+    setResultadoSorteio(null);
+    const res = await fetch("/api/admin/leave-requests/sortear-domingos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ month }),
+    });
+    setSorteando(false);
+    const data = await res.json();
+    if (!res.ok) {
+      setResultadoSorteio(data.error ?? "Não foi possível sortear os domingos.");
+      return;
+    }
+    setResultadoSorteio(
+      data.semDomingoAntes === 0
+        ? "Todo mundo já tinha um domingo do mês definido."
+        : `${data.criados} de ${data.semDomingoAntes} sorteados.${
+            data.erros?.length > 0 ? ` ${data.erros.length} com erro (${data.erros.map((e: any) => e.nome).join(", ")}).` : ""
+          }`
+    );
+    load();
+  }
 
   async function cancelarDireto(id: string) {
     if (!confirm("Cancelar essa folga direto? A pessoa fica livre pra escolher outra data.")) return;
@@ -269,6 +303,15 @@ export function AdminLeaveCalendar() {
       <button onClick={gerarRelatorio} className="btn-secondary mt-3 w-full text-sm">
         Gerar relatório do mês
       </button>
+
+      <button
+        onClick={sortearDomingos}
+        disabled={sorteando}
+        className="btn-secondary mt-2 w-full text-sm"
+      >
+        {sorteando ? "Sorteando…" : "Sortear domingos do mês (quem falta)"}
+      </button>
+      {resultadoSorteio && <p className="mt-2 text-sm text-carvao-700">{resultadoSorteio}</p>}
 
       {relatorio && (
         <div className="mt-3 rounded-card border border-carvao-100 bg-crosta-50 p-3">

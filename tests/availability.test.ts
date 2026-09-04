@@ -249,6 +249,36 @@ describe("verificarDisponibilidade", () => {
     expect(result.motivo).toBe("FUNCAO_FECHADA_NO_DIA");
   });
 
+  it("retorna FOLGA_SEMANAL_FIXA quando a data cai no dia de folga semanal fixo do funcionário", async () => {
+    // Ex: escala de Produção/Serviços Gerais definida pela Direção.
+    const funcao = await criarFuncao({ followsStoreClosure: false });
+    const { employee } = await criarFuncionario({ jobFunctionId: funcao.id, weeklyDayOff: 2 }); // terça
+
+    const result = await verificarDisponibilidade(prisma, {
+      employeeId: employee.id,
+      jobFunctionId: funcao.id,
+      date: TERCA_FEIRA,
+      type: "COMPENSATORIA",
+    });
+
+    expect(result.disponivel).toBe(false);
+    expect(result.motivo).toBe("FOLGA_SEMANAL_FIXA");
+  });
+
+  it("não bloqueia por folga semanal fixa em dias diferentes do dia definido", async () => {
+    const funcao = await criarFuncao({ followsStoreClosure: false });
+    const { employee } = await criarFuncionario({ jobFunctionId: funcao.id, weeklyDayOff: 2 }); // terça
+
+    const result = await verificarDisponibilidade(prisma, {
+      employeeId: employee.id,
+      jobFunctionId: funcao.id,
+      date: DOMINGO,
+      type: "DOMINGO_MES",
+    });
+
+    expect(result).toEqual({ disponivel: true, motivo: "DISPONIVEL", mensagem: "Disponível." });
+  });
+
   it("retorna FUNCIONARIO_INATIVO quando o funcionário não está ativo", async () => {
     const funcao = await criarFuncao();
     const { employee } = await criarFuncionario({ jobFunctionId: funcao.id, status: "INATIVO" });
