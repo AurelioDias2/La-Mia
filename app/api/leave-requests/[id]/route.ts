@@ -26,9 +26,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 // Diretor muda a data de uma folga já pedida (pendente ou aprovada) — ex:
-// realocar alguém pra um domingo com menos gente. Ignora de propósito a
-// checagem de "conflito de função" (é uma decisão manual da Direção), mas
-// mantém a regra de que domingo do mês só pode cair num domingo de verdade.
+// realocar alguém pra um domingo com menos gente, ou mover o domingo do mês
+// de alguém de Produção/Serviços Gerais pra outro dia da escala. Ignora de
+// propósito a checagem de "conflito de função" e a regra de domingo do mês
+// só poder cair num domingo — são decisões manuais da Direção.
 async function handleAlterarData(id: string, newDateStr: string) {
   const { session, error } = await requireDirector();
   if (error) return NextResponse.json({ error }, { status: 401 });
@@ -47,9 +48,6 @@ async function handleAlterarData(id: string, newDateStr: string) {
   }
 
   const newDate = new Date(`${newDateStr}T00:00:00.000Z`);
-  if (leaveRequest.type === "DOMINGO_MES" && newDate.getUTCDay() !== 0) {
-    return NextResponse.json({ error: "A nova data precisa ser um domingo." }, { status: 400 });
-  }
 
   const updated = await prisma.$transaction(async (tx) => {
     const oldDate = leaveRequest.date;

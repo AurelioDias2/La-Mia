@@ -80,8 +80,9 @@ export function AssignLeaveTool() {
     <div className="card">
       <p className="mb-1 font-display text-lg font-semibold text-vinho-500">Atribuir domingo do mês</p>
       <p className="mb-3 text-xs text-carvao-500">
-        Pra quando é a Direção quem decide a escala — como Produção e Serviços Gerais. Se a pessoa
-        já tiver um domingo do mês ativo nesse mês, troca automaticamente pro novo dia.
+        Pra quando é a Direção quem decide a escala — como Produção e Serviços Gerais. A data pode
+        ser qualquer dia da semana, não precisa ser domingo. Se a pessoa já tiver um domingo do mês
+        ativo nesse mês, troca automaticamente pro novo dia.
       </p>
 
       <div className="mb-3">

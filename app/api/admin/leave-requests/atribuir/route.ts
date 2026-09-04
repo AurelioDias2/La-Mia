@@ -13,7 +13,9 @@ type Body = {
 // A Direção atribui uma folga direto pra uma ou várias pessoas (setor
 // inteiro ou seleção), sem passar pelo autoatendimento — pensado pro caso de
 // Produção e Serviços Gerais, cuja folga é uma escala definida pela Direção,
-// não domingo do mês nem crédito acumulado. Ignora de propósito toda a
+// não domingo do mês fixo em domingo nem crédito acumulado. Por isso o
+// domingo do mês aqui pode cair em qualquer dia da semana (diferente do
+// autoatendimento, que exige domingo de verdade). Ignora de propósito toda a
 // checagem de verificarDisponibilidade (conflito de função, crédito etc.):
 // é uma decisão manual da Direção, igual ALTERAR_DATA/CANCELAR_DIRETO.
 export async function POST(req: Request) {
@@ -26,9 +28,6 @@ export async function POST(req: Request) {
   }
 
   const date = new Date(`${body.date}T00:00:00.000Z`);
-  if (body.type === "DOMINGO_MES" && date.getUTCDay() !== 0) {
-    return NextResponse.json({ error: "Domingo do mês só pode cair num domingo." }, { status: 400 });
-  }
 
   let criados = 0;
   let trocados = 0;
