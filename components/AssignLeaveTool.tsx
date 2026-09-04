@@ -8,18 +8,9 @@ type Employee = {
   functions: { role: "PRINCIPAL" | "SECUNDARIA"; jobFunction: { name: string; sector: string } }[];
 };
 
-type LeaveType = "DOMINGO_MES" | "COMPENSATORIA" | "EXTRA";
-
-const typeLabel: Record<LeaveType, string> = {
-  DOMINGO_MES: "Domingo do mês",
-  COMPENSATORIA: "Compensatória",
-  EXTRA: "Extra",
-};
-
 export function AssignLeaveTool() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [type, setType] = useState<LeaveType>("DOMINGO_MES");
   const [date, setDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [resultado, setResultado] = useState<string | null>(null);
@@ -67,7 +58,7 @@ export function AssignLeaveTool() {
     const res = await fetch("/api/admin/leave-requests/atribuir", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employeeIds: Array.from(selected), type, date }),
+      body: JSON.stringify({ employeeIds: Array.from(selected), type: "DOMINGO_MES", date }),
     });
     setSubmitting(false);
     const data = await res.json();
@@ -87,30 +78,11 @@ export function AssignLeaveTool() {
 
   return (
     <div className="card">
-      <p className="mb-1 font-display text-lg font-semibold text-vinho-500">Atribuir folga</p>
+      <p className="mb-1 font-display text-lg font-semibold text-vinho-500">Atribuir domingo do mês</p>
       <p className="mb-3 text-xs text-carvao-500">
-        Pra quando é a Direção quem decide a data — como a escala de Produção e Serviços Gerais.
-        Ignora limite por função e crédito acumulado; se for domingo do mês e a pessoa já tiver um
-        ativo nesse mês, troca automaticamente.
+        Pra quando é a Direção quem decide a escala — como Produção e Serviços Gerais. Se a pessoa
+        já tiver um domingo do mês ativo nesse mês, troca automaticamente pro novo dia.
       </p>
-
-      <div className="mb-3">
-        <p className="field-label">Tipo</p>
-        <div className="flex gap-2">
-          {(["DOMINGO_MES", "COMPENSATORIA", "EXTRA"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setType(t)}
-              className={`flex-1 rounded-card border px-3 py-2 text-xs font-semibold ${
-                type === t ? "border-vinho-500 bg-vinho-50 text-vinho-500" : "border-carvao-100 text-carvao-600"
-              }`}
-            >
-              {typeLabel[t]}
-            </button>
-          ))}
-        </div>
-      </div>
 
       <div className="mb-3">
         <label className="field-label" htmlFor="atribuir-data">
