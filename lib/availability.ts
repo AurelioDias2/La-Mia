@@ -95,8 +95,15 @@ export async function verificarDisponibilidade(
 
   // 2.1.1. Folga semanal fixa da pessoa (definida só pela Direção — ex:
   // escala de Produção/Serviços Gerais). É estrutural, igual ao fechamento
-  // de função: nesse dia ela já não trabalha, não faz sentido pedir folga.
-  if (employee.weeklyDayOff !== null && data.getUTCDay() === employee.weeklyDayOff) {
+  // de função: nesse dia ela já não trabalha, não faz sentido pedir
+  // compensatória/extra nele. NÃO vale pra domingo do mês — é um direito à
+  // parte, todo funcionário tem direito a ele independente da folga
+  // semanal (mesmo quem já folga toda semana num domingo).
+  if (
+    params.type !== LeaveType.DOMINGO_MES &&
+    employee.weeklyDayOff !== null &&
+    data.getUTCDay() === employee.weeklyDayOff
+  ) {
     return fail("FOLGA_SEMANAL_FIXA", "Você já folga nesse dia da semana toda semana.");
   }
 

@@ -344,6 +344,23 @@ describe("verificarDisponibilidade", () => {
     expect(result).toEqual({ disponivel: true, motivo: "DISPONIVEL", mensagem: "Disponível." });
   });
 
+  it("não bloqueia domingo do mês mesmo quando a folga semanal fixa da pessoa é domingo", async () => {
+    // Bug real: quem folga toda semana no domingo não conseguia escolher o
+    // domingo do mês, porque a folga semanal "engolia" o domingo do mês —
+    // são direitos separados, todo funcionário tem direito aos dois.
+    const funcao = await criarFuncao({ followsStoreClosure: false });
+    const { employee } = await criarFuncionario({ jobFunctionId: funcao.id, weeklyDayOff: 0 }); // domingo
+
+    const result = await verificarDisponibilidade(prisma, {
+      employeeId: employee.id,
+      jobFunctionId: funcao.id,
+      date: DOMINGO,
+      type: "DOMINGO_MES",
+    });
+
+    expect(result).toEqual({ disponivel: true, motivo: "DISPONIVEL", mensagem: "Disponível." });
+  });
+
   it("retorna FUNCIONARIO_INATIVO quando o funcionário não está ativo", async () => {
     const funcao = await criarFuncao();
     const { employee } = await criarFuncionario({ jobFunctionId: funcao.id, status: "INATIVO" });
