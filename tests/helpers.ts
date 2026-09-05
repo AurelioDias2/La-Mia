@@ -15,6 +15,7 @@ export async function criarDiretor() {
 export async function criarFuncao(
   overrides: Partial<{
     name: string;
+    sector: string;
     dailyLeaveLimit: number;
     closedWeekday: number | null;
     followsStoreClosure: boolean;
@@ -23,10 +24,20 @@ export async function criarFuncao(
   return prisma.jobFunction.create({
     data: {
       name: overrides.name ?? `Funcao-${Date.now()}-${Math.random()}`,
+      sector: overrides.sector ?? "Pronta Entrega",
       dailyLeaveLimit: overrides.dailyLeaveLimit ?? 1,
       closedWeekday: overrides.closedWeekday ?? null,
       followsStoreClosure: overrides.followsStoreClosure ?? true,
     },
+  });
+}
+
+/** Garante o fechamento fixo de um setor (padrão: Pronta Entrega às segundas). */
+export async function garantirFechamentoSetor(sector = "Pronta Entrega", closedWeekday: number | null = 1) {
+  return prisma.sectorClosedWeekday.upsert({
+    where: { sector },
+    create: { sector, closedWeekday },
+    update: { closedWeekday },
   });
 }
 
@@ -59,7 +70,6 @@ export async function criarFuncionario(params: {
 }
 
 export async function garantirSettings(overrides: Partial<{
-  fixedClosedWeekday: number;
   requestsRequireApproval: boolean;
   pendingRequestHoldsSlot: boolean;
   allowSelfServiceCompensatoria: boolean;

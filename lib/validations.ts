@@ -6,6 +6,7 @@ export const registerSchema = z
     whatsapp: z.string().trim().min(8, "Informe um WhatsApp válido."),
     jobFunctionId: z.string().min(1, "Selecione uma função."),
     secondaryJobFunctionId: z.string().trim().optional(),
+    weeklyDayOff: z.number().int().min(0).max(6).optional(),
     password: z.string().min(8, "A senha precisa ter pelo menos 8 caracteres."),
     confirmPassword: z.string(),
   })

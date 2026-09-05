@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { DIAS_SEMANA_LABEL } from "@/lib/dias-semana";
 
 type Employee = {
   id: string;
@@ -9,22 +10,14 @@ type Employee = {
   functions: { role: "PRINCIPAL" | "SECUNDARIA"; jobFunction: { name: string; sector: string } }[];
 };
 
-const DIAS_SEMANA_LABEL = [
-  "Domingo",
-  "Segunda-feira",
-  "Terça-feira",
-  "Quarta-feira",
-  "Quinta-feira",
-  "Sexta-feira",
-  "Sábado",
-];
-
 export default function FolgaSemanalPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [salvandoId, setSalvandoId] = useState<string | null>(null);
   const [salvoId, setSalvoId] = useState<string | null>(null);
   const [sorteando, setSorteando] = useState(false);
   const [resultadoSorteio, setResultadoSorteio] = useState<string | null>(null);
+  const [sorteandoSetor, setSorteandoSetor] = useState<string | null>(null);
+  const [resultadoSorteioSetor, setResultadoSorteioSetor] = useState<Record<string, string>>({});
 
   async function load() {
     const res = await fetch("/api/employees?status=ATIVO");
@@ -79,6 +72,36 @@ export default function FolgaSemanalPage() {
     load();
   }
 
+  async function sortearNovamenteSetor(setor: string) {
+    if (
+      !confirm(
+        `Sortear a folga semanal de TODO MUNDO da ${setor} de novo esse mês? Isso substitui o dia de quem já tem um definido nesse setor — pensado pro sorteio mensal depois que abrirem todos os dias.`
+      )
+    ) {
+      return;
+    }
+    setSorteandoSetor(setor);
+    setResultadoSorteioSetor((prev) => ({ ...prev, [setor]: "" }));
+    const res = await fetch("/api/admin/employees/sortear-folga-semanal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sector: setor, sobrescrever: true }),
+    });
+    setSorteandoSetor(null);
+    const data = await res.json();
+    if (!res.ok) {
+      setResultadoSorteioSetor((prev) => ({ ...prev, [setor]: data.error ?? "Não foi possível sortear." }));
+      return;
+    }
+    setResultadoSorteioSetor((prev) => ({
+      ...prev,
+      [setor]: `${data.atribuidos} sorteados.${
+        data.erros?.length > 0 ? ` ${data.erros.length} com erro (${data.erros.map((e: any) => e.nome).join(", ")}).` : ""
+      }`,
+    }));
+    load();
+  }
+
   const porSetor = new Map<string, Employee[]>();
   for (const emp of employees) {
     const setor = emp.functions.find((f) => f.role === "PRINCIPAL")?.jobFunction.sector ?? "Sem setor";
@@ -105,7 +128,20 @@ export default function FolgaSemanalPage() {
       <div className="space-y-4">
         {Array.from(porSetor.entries()).map(([setor, emps]) => (
           <div key={setor} className="card">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-carvao-500">{setor}</p>
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wide text-carvao-500">{setor}</p>
+              <button
+                type="button"
+                onClick={() => sortearNovamenteSetor(setor)}
+                disabled={sorteandoSetor === setor}
+                className="text-xs font-semibold text-vinho-500 hover:underline"
+              >
+                {sorteandoSetor === setor ? "Sorteando…" : "Sortear de novo esse mês"}
+              </button>
+            </div>
+            {resultadoSorteioSetor[setor] && (
+              <p className="mb-2 text-xs text-carvao-700">{resultadoSorteioSetor[setor]}</p>
+            )}
             <div className="space-y-2">
               {emps.map((emp) => (
                 <div key={emp.id} className="flex items-center gap-2">

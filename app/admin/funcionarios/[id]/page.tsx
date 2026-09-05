@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { extractErrorMessage } from "@/lib/errors";
+import { DIAS_SEMANA_LABEL } from "@/lib/dias-semana";
 
 type CreditTransaction = {
   id: string;
@@ -28,16 +29,6 @@ type Detail = {
 };
 
 type JobFunction = { id: string; name: string };
-
-const DIAS_SEMANA_LABEL = [
-  "Domingo",
-  "Segunda-feira",
-  "Terça-feira",
-  "Quarta-feira",
-  "Quinta-feira",
-  "Sexta-feira",
-  "Sábado",
-];
 
 export default function FichaFuncionarioPage({ params }: { params: { id: string } }) {
   const [detail, setDetail] = useState<Detail | null>(null);

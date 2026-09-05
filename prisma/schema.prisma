@@ -312,7 +312,6 @@ model AuditLog {
 
 model Settings {
   id                        Int     @id @default(1)
-  fixedClosedWeekday        Int     @default(1) // 0=domingo ... 1=segunda (seção 10)
   requestsRequireApproval   Boolean @default(true)
   pendingRequestHoldsSlot   Boolean @default(true)
 
@@ -320,4 +319,16 @@ model Settings {
   // Direção decide (manualmente ou pelo sorteio). Não afeta domingo do mês
   // nem extra, só compensatória.
   allowSelfServiceCompensatoria Boolean @default(true)
+}
+
+// Dia fixo de fechamento POR SETOR (substitui o antigo fechamento único da
+// loja inteira — seção 10). Nulo = esse setor não tem mais dia fixo de
+// fechamento (ex: quando abrirem todos os dias, a folga vira semanal
+// sorteada em vez de um dia fixo pra todo mundo).
+model SectorClosedWeekday {
+  sector        String   @id
+  closedWeekday Int?
+  updatedAt     DateTime @updatedAt
+
+  @@map("sector_closed_weekday")
 }

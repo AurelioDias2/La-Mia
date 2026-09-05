@@ -5,9 +5,17 @@ import { useEffect, useState } from "react";
 type LeaveEntry = {
   id: string;
   date: string;
-  type: "DOMINGO_MES" | "COMPENSATORIA" | "EXTRA";
+  type: "DOMINGO_MES" | "COMPENSATORIA" | "EXTRA" | "FOLGA_SEMANAL";
   status: string;
   employeeName: string;
+  jobFunctionName: string;
+  sector: string;
+};
+
+type EmployeeComFolga = {
+  id: string;
+  fullName: string;
+  weeklyDayOff: number | null;
   jobFunctionName: string;
   sector: string;
 };
@@ -16,7 +24,38 @@ const typeLabel: Record<LeaveEntry["type"], string> = {
   DOMINGO_MES: "Domingo do mês",
   COMPENSATORIA: "Compensatória",
   EXTRA: "Folga extra",
+  FOLGA_SEMANAL: "Folga semanal",
 };
+
+const TIPOS_FILTRO = ["Todos", "DOMINGO_MES", "FOLGA_SEMANAL", "COMPENSATORIA"] as const;
+const LABEL_TIPO_FILTRO: Record<(typeof TIPOS_FILTRO)[number], string> = {
+  Todos: "Todos",
+  DOMINGO_MES: "Domingo do mês",
+  FOLGA_SEMANAL: "Folga semanal",
+  COMPENSATORIA: "Compensatória",
+};
+
+function entriesFolgaSemanal(employees: EmployeeComFolga[], year: number, m: number, daysInMonth: number): LeaveEntry[] {
+  const resultado: LeaveEntry[] = [];
+  for (let day = 1; day <= daysInMonth; day++) {
+    const iso = `${year}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const weekday = new Date(Date.UTC(year, m - 1, day)).getUTCDay();
+    for (const emp of employees) {
+      if (emp.weeklyDayOff === weekday) {
+        resultado.push({
+          id: `folga-semanal-${emp.id}-${iso}`,
+          date: iso,
+          type: "FOLGA_SEMANAL",
+          status: "APROVADA",
+          employeeName: emp.fullName,
+          jobFunctionName: emp.jobFunctionName,
+          sector: emp.sector,
+        });
+      }
+    }
+  }
+  return resultado;
+}
 
 const statusLabel: Record<string, string> = {
   PENDENTE: "Pendente",
@@ -37,8 +76,9 @@ const TITULO_RELATORIO: Record<LeaveEntry["type"], string> = {
   COMPENSATORIA: "FOLGAS COMPENSATÓRIAS",
   EXTRA: "FOLGAS EXTRAS",
   DOMINGO_MES: "DOMINGO DO MÊS",
+  FOLGA_SEMANAL: "FOLGA SEMANAL",
 };
-const ORDEM_RELATORIO: LeaveEntry["type"][] = ["COMPENSATORIA", "EXTRA", "DOMINGO_MES"];
+const ORDEM_RELATORIO: LeaveEntry["type"][] = ["COMPENSATORIA", "EXTRA", "FOLGA_SEMANAL", "DOMINGO_MES"];
 
 function primeiroNome(nomeCompleto: string): string {
   return nomeCompleto.trim().split(/\s+/)[0];
@@ -54,6 +94,7 @@ export function AdminLeaveCalendar() {
   const now = new Date();
   const [month, setMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   const [entries, setEntries] = useState<LeaveEntry[]>([]);
+  const [employees, setEmployees] = useState<EmployeeComFolga[]>([]);
   const [setoresAtivos, setSetoresAtivos] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -61,6 +102,7 @@ export function AdminLeaveCalendar() {
   const [newDateValue, setNewDateValue] = useState("");
   const [changeError, setChangeError] = useState<string | null>(null);
   const [sectorFilter, setSectorFilter] = useState<string>("Todos");
+  const [typeFilter, setTypeFilter] = useState<(typeof TIPOS_FILTRO)[number]>("Todos");
   const [relatorio, setRelatorio] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
   const [sorteando, setSorteando] = useState(false);
@@ -75,6 +117,33 @@ export function AdminLeaveCalendar() {
     setEntries(await res.json());
   }
 
+  type EmployeeApi = {
+    id: string;
+    fullName: string;
+    weeklyDayOff: number | null;
+    functions: { role: "PRINCIPAL" | "SECUNDARIA"; jobFunction: { name: string; sector: string } }[];
+  };
+
+  async function loadEmployees() {
+    const res = await fetch("/api/employees?status=ATIVO");
+    const data = (await res.json()) as EmployeeApi[];
+    setEmployees(
+      data.flatMap((e) => {
+        const principal = e.functions.find((f) => f.role === "PRINCIPAL");
+        if (!principal) return [];
+        return [
+          {
+            id: e.id,
+            fullName: e.fullName,
+            weeklyDayOff: e.weeklyDayOff,
+            jobFunctionName: principal.jobFunction.name,
+            sector: principal.jobFunction.sector,
+          },
+        ];
+      })
+    );
+  }
+
   useEffect(() => {
     // Lista de setores independente do mês — senão um setor sem nenhuma
     // folga aprovada/pendente ainda esse mês (ex: Serviços Gerais recém
@@ -82,6 +151,7 @@ export function AdminLeaveCalendar() {
     fetch("/api/job-functions")
       .then((r) => r.json())
       .then((fns: { sector: string }[]) => setSetoresAtivos(Array.from(new Set(fns.map((f) => f.sector)))));
+    loadEmployees();
   }, []);
 
   useEffect(() => {
@@ -149,6 +219,7 @@ export function AdminLeaveCalendar() {
             data.erros?.length > 0 ? ` ${data.erros.length} com erro (${data.erros.map((e: any) => e.nome).join(", ")}).` : ""
           }`
     );
+    loadEmployees();
   }
 
   async function sortearDomingos() {
@@ -259,15 +330,19 @@ export function AdminLeaveCalendar() {
   const monthLabel = `${MESES[m - 1]} de ${year}`;
   const daysInMonth = new Date(Date.UTC(year, m, 0)).getUTCDate();
 
+  const entriesCombinadas = [...entries, ...entriesFolgaSemanal(employees, year, m, daysInMonth)];
+
   const setores = [
     "Todos",
-    ...Array.from(new Set([...setoresAtivos, ...entries.map((e) => e.sector)])).sort(),
+    ...Array.from(new Set([...setoresAtivos, ...entriesCombinadas.map((e) => e.sector)])).sort(),
   ];
   const entriesDoSetor =
-    sectorFilter === "Todos" ? entries : entries.filter((e) => e.sector === sectorFilter);
+    sectorFilter === "Todos" ? entriesCombinadas : entriesCombinadas.filter((e) => e.sector === sectorFilter);
+  const entriesDoSetorETipo =
+    typeFilter === "Todos" ? entriesDoSetor : entriesDoSetor.filter((e) => e.type === typeFilter);
 
   const entriesByDate = new Map<string, LeaveEntry[]>();
-  for (const e of entriesDoSetor) {
+  for (const e of entriesDoSetorETipo) {
     const ativas = e.status !== "CANCELADA" && e.status !== "RECUSADA";
     if (!ativas) continue;
     const list = entriesByDate.get(e.date) ?? [];
@@ -308,7 +383,7 @@ export function AdminLeaveCalendar() {
       </div>
 
       {setores.length > 2 && (
-        <div className="mb-3 flex gap-2 overflow-x-auto">
+        <div className="mb-2 flex gap-2 overflow-x-auto">
           {setores.map((s) => (
             <button
               key={s}
@@ -328,6 +403,26 @@ export function AdminLeaveCalendar() {
           ))}
         </div>
       )}
+
+      <div className="mb-3 flex gap-2 overflow-x-auto">
+        {TIPOS_FILTRO.map((t) => (
+          <button
+            key={t}
+            onClick={() => {
+              setTypeFilter(t);
+              setSelectedDate(null);
+              setRelatorio(null);
+            }}
+            className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${
+              typeFilter === t
+                ? "bg-crosta-500 text-white"
+                : "border border-carvao-100 bg-white text-carvao-600"
+            }`}
+          >
+            {LABEL_TIPO_FILTRO[t]}
+          </button>
+        ))}
+      </div>
 
       <div className="grid grid-cols-7 gap-1 text-center">
         {DIAS_SEMANA.map((d, i) => (
@@ -444,7 +539,9 @@ export function AdminLeaveCalendar() {
                     </span>
                   </p>
                 </div>
-                {(e.status === "PENDENTE" || e.status === "APROVADA") && changingDateId !== e.id && (
+                {e.type !== "FOLGA_SEMANAL" &&
+                  (e.status === "PENDENTE" || e.status === "APROVADA") &&
+                  changingDateId !== e.id && (
                   <div className="flex shrink-0 flex-col items-end gap-1">
                     <button
                       onClick={() => abrirMudarData(e.id, e.date)}

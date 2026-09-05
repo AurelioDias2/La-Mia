@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { extractErrorMessage } from "@/lib/errors";
 import { ordenarSetores, labelCargoPorSetor } from "@/lib/setores";
+import { DIAS_SEMANA_LABEL } from "@/lib/dias-semana";
+
+const SETORES_COM_FOLGA_SEMANAL = ["Produção", "Pronta Entrega"];
 
 type JobFunction = { id: string; name: string; sector: string };
 
@@ -13,6 +16,8 @@ export default function CadastroPage() {
   const [whatsapp, setWhatsapp] = useState("");
   const [setor, setSetor] = useState("");
   const [jobFunctionId, setJobFunctionId] = useState("");
+  const [jaTemFolgaSemanal, setJaTemFolgaSemanal] = useState<"" | "sim" | "nao">("");
+  const [weeklyDayOff, setWeeklyDayOff] = useState("");
   const [temSecundaria, setTemSecundaria] = useState(false);
   const [setorSecundario, setSetorSecundario] = useState("");
   const [secondaryJobFunctionId, setSecondaryJobFunctionId] = useState("");
@@ -42,6 +47,7 @@ export default function CadastroPage() {
         whatsapp,
         jobFunctionId,
         secondaryJobFunctionId: temSecundaria ? secondaryJobFunctionId : undefined,
+        weeklyDayOff: jaTemFolgaSemanal === "sim" && weeklyDayOff !== "" ? Number(weeklyDayOff) : undefined,
         password,
         confirmPassword,
       }),
@@ -154,6 +160,66 @@ export default function CadastroPage() {
                       {f.name}
                     </option>
                   ))}
+              </select>
+            </div>
+          )}
+          {setor && jobFunctionId && SETORES_COM_FOLGA_SEMANAL.includes(setor) && (
+            <div>
+              <label className="field-label">Você já tem um dia definido da sua folga semanal?</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setJaTemFolgaSemanal("sim")}
+                  className={`flex-1 rounded-card border px-3 py-2 text-sm font-semibold ${
+                    jaTemFolgaSemanal === "sim"
+                      ? "border-vinho-500 bg-vinho-50 text-vinho-500"
+                      : "border-carvao-100 text-carvao-600"
+                  }`}
+                >
+                  Sim
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setJaTemFolgaSemanal("nao");
+                    setWeeklyDayOff("");
+                  }}
+                  className={`flex-1 rounded-card border px-3 py-2 text-sm font-semibold ${
+                    jaTemFolgaSemanal === "nao"
+                      ? "border-vinho-500 bg-vinho-50 text-vinho-500"
+                      : "border-carvao-100 text-carvao-600"
+                  }`}
+                >
+                  Não
+                </button>
+              </div>
+              {jaTemFolgaSemanal === "nao" && (
+                <p className="mt-2 text-xs text-carvao-500">
+                  Sem problema — a Direção define o seu dia depois, sem desfalcar sua praça.
+                </p>
+              )}
+            </div>
+          )}
+          {jaTemFolgaSemanal === "sim" && (
+            <div>
+              <label className="field-label" htmlFor="weeklyDayOff">
+                Qual seu dia?
+              </label>
+              <select
+                id="weeklyDayOff"
+                className="field-input"
+                value={weeklyDayOff}
+                onChange={(e) => setWeeklyDayOff(e.target.value)}
+                required
+              >
+                <option value="" disabled>
+                  Toque para selecionar
+                </option>
+                {DIAS_SEMANA_LABEL.map((label, i) => (
+                  <option key={i} value={i}>
+                    {label}
+                  </option>
+                ))}
               </select>
             </div>
           )}

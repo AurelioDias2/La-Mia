@@ -60,12 +60,27 @@ async function main() {
     update: {},
     create: {
       id: 1,
-      fixedClosedWeekday: 1, // segunda-feira
       requestsRequireApproval: true,
       pendingRequestHoldsSlot: true,
     },
   });
   console.log("Configurações padrão garantidas.");
+
+  // Fechamento fixo por setor: Pronta Entrega e Serviços Gerais fecham
+  // segunda-feira; Produção não tem fechamento fixo (segue trabalhando).
+  const fechamentoPorSetor: { sector: string; closedWeekday: number | null }[] = [
+    { sector: "Pronta Entrega", closedWeekday: 1 },
+    { sector: "Produção", closedWeekday: null },
+    { sector: "Serviços Gerais", closedWeekday: 1 },
+  ];
+  for (const { sector, closedWeekday } of fechamentoPorSetor) {
+    await prisma.sectorClosedWeekday.upsert({
+      where: { sector },
+      update: {},
+      create: { sector, closedWeekday },
+    });
+  }
+  console.log("Fechamento por setor garantido.");
 }
 
 main()

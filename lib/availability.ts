@@ -72,14 +72,19 @@ export async function verificarDisponibilidade(
     return fail("DIA_INVALIDO", "Função inválida.");
   }
 
-  // 2. Dia válido (não é a segunda-feira de fechamento fixo — seção 10)?
-  // Só vale para funções que realmente não trabalham nesse dia
-  // (jobFunction.followsStoreClosure) — algumas, como Produção, seguem
-  // trabalhando mesmo com a loja fechada pro público.
+  // 2. Dia válido — fechamento fixo é por SETOR agora (cada setor pode ter
+  // seu próprio dia, ou nenhum). Só vale para funções que realmente não
+  // trabalham nesse dia (jobFunction.followsStoreClosure) — algumas, como
+  // Produção, seguem trabalhando mesmo com o setor fechado pro público.
   const settings = await tx.settings.findUnique({ where: { id: 1 } });
-  const closedWeekday = settings?.fixedClosedWeekday ?? 1; // 1 = segunda-feira
-  if (jobFunction.followsStoreClosure && data.getUTCDay() === closedWeekday) {
-    return fail("LOJA_FECHADA", "A loja não abre nesse dia da semana (fechamento semanal).");
+  const sectorClosedWeekday = await tx.sectorClosedWeekday.findUnique({ where: { sector: jobFunction.sector } });
+  if (
+    jobFunction.followsStoreClosure &&
+    sectorClosedWeekday?.closedWeekday !== null &&
+    sectorClosedWeekday?.closedWeekday !== undefined &&
+    data.getUTCDay() === sectorClosedWeekday.closedWeekday
+  ) {
+    return fail("LOJA_FECHADA", "Esse setor não abre nesse dia da semana (fechamento fixo).");
   }
 
   // 2.1. Fechamento adicional específico da função (setores diferentes podem

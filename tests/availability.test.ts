@@ -4,10 +4,12 @@ import {
   criarFuncao,
   criarFuncionario,
   garantirSettings,
+  garantirFechamentoSetor,
   DOMINGO,
   PROXIMO_DOMINGO,
   SEGUNDA_FEIRA,
   TERCA_FEIRA,
+  QUARTA_FEIRA,
 } from "./helpers";
 import { verificarDisponibilidade } from "../lib/availability";
 
@@ -18,6 +20,7 @@ describe("verificarDisponibilidade", () => {
   beforeEach(async () => {
     await resetDb();
     await garantirSettings();
+    await garantirFechamentoSetor(); // Pronta Entrega fecha segunda, por padrão
   });
 
   it("retorna DISPONIVEL quando tudo está em ordem", async () => {
@@ -47,6 +50,52 @@ describe("verificarDisponibilidade", () => {
 
     expect(result.disponivel).toBe(false);
     expect(result.motivo).toBe("LOJA_FECHADA");
+  });
+
+  it("fechamento fixo é independente por setor — um setor não bloqueia o dia do outro", async () => {
+    await garantirFechamentoSetor("Pronta Entrega", 1); // segunda
+    await garantirFechamentoSetor("Serviços Gerais", 3); // quarta
+
+    const funcaoPE = await criarFuncao({ sector: "Pronta Entrega" });
+    const funcaoSG = await criarFuncao({ sector: "Serviços Gerais" });
+    const { employee: empPE } = await criarFuncionario({ jobFunctionId: funcaoPE.id });
+    const { employee: empSG } = await criarFuncionario({ jobFunctionId: funcaoSG.id });
+
+    // Pronta Entrega fecha segunda — Serviços Gerais não é afetado por isso
+    // (usa DOMINGO_MES pra não esbarrar na checagem de saldo de crédito).
+    const resultSG_segunda = await verificarDisponibilidade(prisma, {
+      employeeId: empSG.id,
+      jobFunctionId: funcaoSG.id,
+      date: SEGUNDA_FEIRA,
+      type: "DOMINGO_MES",
+    });
+    expect(resultSG_segunda.motivo).not.toBe("LOJA_FECHADA");
+
+    // Serviços Gerais fecha quarta — Pronta Entrega não é afetado por isso.
+    const resultPE_quarta = await verificarDisponibilidade(prisma, {
+      employeeId: empPE.id,
+      jobFunctionId: funcaoPE.id,
+      date: QUARTA_FEIRA,
+      type: "DOMINGO_MES",
+    });
+    expect(resultPE_quarta.motivo).not.toBe("LOJA_FECHADA");
+
+    // Mas cada um é bloqueado no seu próprio dia.
+    const resultPE_segunda = await verificarDisponibilidade(prisma, {
+      employeeId: empPE.id,
+      jobFunctionId: funcaoPE.id,
+      date: SEGUNDA_FEIRA,
+      type: "COMPENSATORIA",
+    });
+    expect(resultPE_segunda.motivo).toBe("LOJA_FECHADA");
+
+    const resultSG_quarta = await verificarDisponibilidade(prisma, {
+      employeeId: empSG.id,
+      jobFunctionId: funcaoSG.id,
+      date: QUARTA_FEIRA,
+      type: "COMPENSATORIA",
+    });
+    expect(resultSG_quarta.motivo).toBe("LOJA_FECHADA");
   });
 
   it("retorna DIA_INVALIDO quando o tipo é DOMINGO_MES mas a data não é domingo", async () => {

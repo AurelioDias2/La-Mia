@@ -20,7 +20,6 @@ export async function PATCH(req: Request) {
   if (error) return NextResponse.json({ error }, { status: 401 });
 
   const body = await req.json() as {
-    fixedClosedWeekday?: number;
     requestsRequireApproval?: boolean;
     pendingRequestHoldsSlot?: boolean;
     allowSelfServiceCompensatoria?: boolean;

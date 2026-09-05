@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const { fullName, whatsapp, jobFunctionId, secondaryJobFunctionId, password } = parsed.data;
+  const { fullName, whatsapp, jobFunctionId, secondaryJobFunctionId, weeklyDayOff, password } = parsed.data;
 
   const jobFunction = await prisma.jobFunction.findUnique({ where: { id: jobFunctionId } });
   if (!jobFunction || !jobFunction.active) {
@@ -52,6 +52,7 @@ export async function POST(req: Request) {
         fullName,
         whatsapp,
         status: "PENDENTE",
+        weeklyDayOff: weeklyDayOff ?? null,
         functions: {
           create: [
             { jobFunctionId, role: "PRINCIPAL" },
