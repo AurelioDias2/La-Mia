@@ -8,6 +8,7 @@ type Settings = {
   fixedClosedWeekday: number;
   requestsRequireApproval: boolean;
   pendingRequestHoldsSlot: boolean;
+  allowSelfServiceCompensatoria: boolean;
 };
 
 export default function ConfiguracoesPage() {
@@ -75,6 +76,25 @@ export default function ConfiguracoesPage() {
             className="h-5 w-5 accent-vinho-500"
           />
         </label>
+
+        <label className="flex items-center justify-between">
+          <span className="text-sm text-carvao-700">
+            Funcionários podem escolher o dia da compensatória sozinhos
+          </span>
+          <input
+            type="checkbox"
+            checked={settings.allowSelfServiceCompensatoria}
+            onChange={(e) => save({ allowSelfServiceCompensatoria: e.target.checked })}
+            disabled={saving}
+            className="h-5 w-5 accent-vinho-500"
+          />
+        </label>
+        {!settings.allowSelfServiceCompensatoria && (
+          <p className="text-xs text-carvao-500">
+            Desligado: só a Direção define o dia da compensatória, manualmente ou pelo sorteio, no
+            Calendário. Não afeta domingo do mês nem extra.
+          </p>
+        )}
       </div>
 
       <p className="mt-3 text-xs text-carvao-500">

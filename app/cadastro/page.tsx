@@ -13,6 +13,9 @@ export default function CadastroPage() {
   const [whatsapp, setWhatsapp] = useState("");
   const [setor, setSetor] = useState("");
   const [jobFunctionId, setJobFunctionId] = useState("");
+  const [temSecundaria, setTemSecundaria] = useState(false);
+  const [setorSecundario, setSetorSecundario] = useState("");
+  const [secondaryJobFunctionId, setSecondaryJobFunctionId] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -34,7 +37,14 @@ export default function CadastroPage() {
     const res = await fetch("/api/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fullName, whatsapp, jobFunctionId, password, confirmPassword }),
+      body: JSON.stringify({
+        fullName,
+        whatsapp,
+        jobFunctionId,
+        secondaryJobFunctionId: temSecundaria ? secondaryJobFunctionId : undefined,
+        password,
+        confirmPassword,
+      }),
     });
     setLoading(false);
 
@@ -139,6 +149,74 @@ export default function CadastroPage() {
                 </option>
                 {jobFunctions
                   .filter((f) => f.sector === setor)
+                  .map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
+          {setor && jobFunctionId && (
+            <div>
+              <label className="flex items-center gap-2 text-sm text-carvao-700">
+                <input
+                  type="checkbox"
+                  checked={temSecundaria}
+                  onChange={(e) => {
+                    setTemSecundaria(e.target.checked);
+                    if (!e.target.checked) {
+                      setSetorSecundario("");
+                      setSecondaryJobFunctionId("");
+                    }
+                  }}
+                  className="h-4 w-4 accent-vinho-500"
+                />
+                Também ajudo em outra praça/função
+              </label>
+            </div>
+          )}
+          {temSecundaria && (
+            <div>
+              <label className="field-label" htmlFor="setorSecundario">
+                Setor da praça/função secundária
+              </label>
+              <select
+                id="setorSecundario"
+                className="field-input"
+                value={setorSecundario}
+                onChange={(e) => {
+                  setSetorSecundario(e.target.value);
+                  setSecondaryJobFunctionId("");
+                }}
+              >
+                <option value="" disabled>
+                  Toque para selecionar
+                </option>
+                {ordenarSetores(Array.from(new Set(jobFunctions.map((f) => f.sector)))).map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {temSecundaria && setorSecundario && (
+            <div>
+              <label className="field-label" htmlFor="secondaryJobFunction">
+                {labelCargoPorSetor(setorSecundario)} secundária
+              </label>
+              <select
+                id="secondaryJobFunction"
+                className="field-input"
+                value={secondaryJobFunctionId}
+                onChange={(e) => setSecondaryJobFunctionId(e.target.value)}
+              >
+                <option value="" disabled>
+                  Toque para selecionar
+                </option>
+                {jobFunctions
+                  .filter((f) => f.sector === setorSecundario && f.id !== jobFunctionId)
                   .map((f) => (
                     <option key={f.id} value={f.id}>
                       {f.name}

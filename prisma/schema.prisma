@@ -315,4 +315,9 @@ model Settings {
   fixedClosedWeekday        Int     @default(1) // 0=domingo ... 1=segunda (seção 10)
   requestsRequireApproval   Boolean @default(true)
   pendingRequestHoldsSlot   Boolean @default(true)
+
+  // Se false, ninguém escolhe o próprio dia de compensatória — só a
+  // Direção decide (manualmente ou pelo sorteio). Não afeta domingo do mês
+  // nem extra, só compensatória.
+  allowSelfServiceCompensatoria Boolean @default(true)
 }

@@ -10,11 +10,18 @@ export async function POST(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
-  const { fullName, whatsapp, jobFunctionId, password } = parsed.data;
+  const { fullName, whatsapp, jobFunctionId, secondaryJobFunctionId, password } = parsed.data;
 
   const jobFunction = await prisma.jobFunction.findUnique({ where: { id: jobFunctionId } });
   if (!jobFunction || !jobFunction.active) {
     return NextResponse.json({ error: "Função inválida." }, { status: 400 });
+  }
+
+  if (secondaryJobFunctionId) {
+    const secondary = await prisma.jobFunction.findUnique({ where: { id: secondaryJobFunctionId } });
+    if (!secondary || !secondary.active) {
+      return NextResponse.json({ error: "Função secundária inválida." }, { status: 400 });
+    }
   }
 
   const existing = await prisma.user.findUnique({ where: { username: whatsapp } });
@@ -46,7 +53,12 @@ export async function POST(req: Request) {
         whatsapp,
         status: "PENDENTE",
         functions: {
-          create: { jobFunctionId, role: "PRINCIPAL" },
+          create: [
+            { jobFunctionId, role: "PRINCIPAL" },
+            ...(secondaryJobFunctionId
+              ? [{ jobFunctionId: secondaryJobFunctionId, role: "SECUNDARIA" as const }]
+              : []),
+          ],
         },
       },
     });
@@ -56,7 +68,7 @@ export async function POST(req: Request) {
       action: "EMPLOYEE_REGISTERED",
       targetType: "Employee",
       targetId: employee.id,
-      metadata: { fullName, whatsapp, jobFunctionId },
+      metadata: { fullName, whatsapp, jobFunctionId, secondaryJobFunctionId },
     });
 
     return employee;

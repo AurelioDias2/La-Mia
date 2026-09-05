@@ -62,6 +62,7 @@ export async function garantirSettings(overrides: Partial<{
   fixedClosedWeekday: number;
   requestsRequireApproval: boolean;
   pendingRequestHoldsSlot: boolean;
+  allowSelfServiceCompensatoria: boolean;
 }> = {}) {
   return prisma.settings.upsert({
     where: { id: 1 },

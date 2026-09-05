@@ -67,6 +67,8 @@ export function AdminLeaveCalendar() {
   const [resultadoSorteio, setResultadoSorteio] = useState<string | null>(null);
   const [sorteandoSemanal, setSorteandoSemanal] = useState(false);
   const [resultadoSorteioSemanal, setResultadoSorteioSemanal] = useState<string | null>(null);
+  const [sorteandoComp, setSorteandoComp] = useState(false);
+  const [resultadoSorteioComp, setResultadoSorteioComp] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch(`/api/admin/leave-requests?month=${month}`);
@@ -88,8 +90,40 @@ export function AdminLeaveCalendar() {
     setRelatorio(null);
     setResultadoSorteio(null);
     setResultadoSorteioSemanal(null);
+    setResultadoSorteioComp(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month]);
+
+  async function sortearCompensatoria() {
+    if (
+      !confirm(
+        "Sortear a compensatória de todo mundo que já tem crédito disponível e ainda não usou nenhum esse mês? Nunca cai em sexta, sábado ou domingo, e não concentra uma função no mesmo dia."
+      )
+    ) {
+      return;
+    }
+    setSorteandoComp(true);
+    setResultadoSorteioComp(null);
+    const res = await fetch("/api/admin/leave-requests/sortear-compensatoria", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ month }),
+    });
+    setSorteandoComp(false);
+    const data = await res.json();
+    if (!res.ok) {
+      setResultadoSorteioComp(data.error ?? "Não foi possível sortear a compensatória.");
+      return;
+    }
+    setResultadoSorteioComp(
+      data.comCreditoAntes === 0
+        ? "Ninguém tem crédito de compensatória disponível sem usar ainda esse mês."
+        : `${data.criados} de ${data.comCreditoAntes} sorteados.${
+            data.erros?.length > 0 ? ` ${data.erros.length} com erro (${data.erros.map((e: any) => e.nome).join(", ")}).` : ""
+          }`
+    );
+    load();
+  }
 
   async function sortearFolgaSemanal() {
     if (
@@ -363,6 +397,15 @@ export function AdminLeaveCalendar() {
         {sorteandoSemanal ? "Sorteando…" : "Sortear folga semanal (quem falta)"}
       </button>
       {resultadoSorteioSemanal && <p className="mt-2 text-sm text-carvao-700">{resultadoSorteioSemanal}</p>}
+
+      <button
+        onClick={sortearCompensatoria}
+        disabled={sorteandoComp}
+        className="btn-secondary mt-2 w-full text-sm"
+      >
+        {sorteandoComp ? "Sorteando…" : "Sortear compensatória (quem tem crédito)"}
+      </button>
+      {resultadoSorteioComp && <p className="mt-2 text-sm text-carvao-700">{resultadoSorteioComp}</p>}
 
       {relatorio && (
         <div className="mt-3 rounded-card border border-carvao-100 bg-crosta-50 p-3">

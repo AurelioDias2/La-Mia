@@ -13,7 +13,7 @@ export async function GET() {
     include: { functions: { include: { jobFunction: true } } },
   });
 
-  const [comp, extra, nextLeave, thisMonthSunday] = await Promise.all([
+  const [comp, extra, nextLeave, thisMonthSunday, settings] = await Promise.all([
     calcularSaldoCredito(prisma, employeeId, "COMPENSATORIA"),
     calcularSaldoCredito(prisma, employeeId, "EXTRA"),
     prisma.leaveRequest.findFirst({
@@ -31,6 +31,7 @@ export async function GET() {
         },
       },
     }),
+    prisma.settings.findUnique({ where: { id: 1 } }),
   ]);
 
   return NextResponse.json({
@@ -40,5 +41,6 @@ export async function GET() {
     extra,
     domingoDisponivel: !thisMonthSunday,
     nextLeave,
+    allowSelfServiceCompensatoria: settings?.allowSelfServiceCompensatoria ?? true,
   });
 }

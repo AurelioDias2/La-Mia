@@ -2,11 +2,13 @@
 // outro setor que a Direção crie no futuro aparece depois, em ordem alfabética.
 const ORDEM_SETORES = ["Pronta Entrega", "Produção", "Serviços Gerais"];
 
-// Rótulo do campo de função interna, que muda de nome conforme o setor
-// (seção "Organização dos setores no cadastro"): Cargo na Pronta Entrega,
-// Praça na Produção, Função em Serviços Gerais (e em qualquer setor novo).
+// Rótulo do campo de função interna, que muda de nome conforme o setor:
+// Praça na Pronta Entrega e na Produção (equipes diferentes, mas o mesmo
+// conceito — cada uma tem suas praças fixas, ex: Forno, Delivery,
+// Atendimento na Pronta Entrega; Massas, Recheios etc. na Produção).
+// Serviços Gerais não tem praça (é limpeza) — fica só "Função".
 const LABEL_POR_SETOR: Record<string, string> = {
-  "Pronta Entrega": "Cargo",
+  "Pronta Entrega": "Praça",
   Produção: "Praça",
   "Serviços Gerais": "Função",
 };

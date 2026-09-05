@@ -5,6 +5,7 @@ export const registerSchema = z
     fullName: z.string().trim().min(3, "Informe o nome completo."),
     whatsapp: z.string().trim().min(8, "Informe um WhatsApp válido."),
     jobFunctionId: z.string().min(1, "Selecione uma função."),
+    secondaryJobFunctionId: z.string().trim().optional(),
     password: z.string().min(8, "A senha precisa ter pelo menos 8 caracteres."),
     confirmPassword: z.string(),
   })

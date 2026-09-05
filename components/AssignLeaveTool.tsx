@@ -8,9 +8,17 @@ type Employee = {
   functions: { role: "PRINCIPAL" | "SECUNDARIA"; jobFunction: { name: string; sector: string } }[];
 };
 
+type LeaveType = "DOMINGO_MES" | "COMPENSATORIA";
+
+const typeLabel: Record<LeaveType, string> = {
+  DOMINGO_MES: "Domingo do mês",
+  COMPENSATORIA: "Compensatória",
+};
+
 export function AssignLeaveTool() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [type, setType] = useState<LeaveType>("DOMINGO_MES");
   const [date, setDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [resultado, setResultado] = useState<string | null>(null);
@@ -58,7 +66,7 @@ export function AssignLeaveTool() {
     const res = await fetch("/api/admin/leave-requests/atribuir", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ employeeIds: Array.from(selected), type: "DOMINGO_MES", date }),
+      body: JSON.stringify({ employeeIds: Array.from(selected), type, date }),
     });
     setSubmitting(false);
     const data = await res.json();
@@ -78,12 +86,31 @@ export function AssignLeaveTool() {
 
   return (
     <div className="card">
-      <p className="mb-1 font-display text-lg font-semibold text-vinho-500">Atribuir domingo do mês</p>
+      <p className="mb-1 font-display text-lg font-semibold text-vinho-500">Atribuir folga</p>
       <p className="mb-3 text-xs text-carvao-500">
-        Pra quando é a Direção quem decide a escala — como Produção e Serviços Gerais. A data pode
-        ser qualquer dia da semana, não precisa ser domingo. Se a pessoa já tiver um domingo do mês
-        ativo nesse mês, troca automaticamente pro novo dia.
+        Pra quando é a Direção quem decide a data — como a escala de Produção e Serviços Gerais, ou
+        pra definir direto a compensatória de alguém. Domingo do mês pode ser qualquer dia da
+        semana; se a pessoa já tiver um ativo nesse mês, troca automaticamente. Compensatória
+        concede e usa 1 crédito na hora, sem precisar de saldo acumulado.
       </p>
+
+      <div className="mb-3">
+        <p className="field-label">Tipo</p>
+        <div className="flex gap-2">
+          {(["DOMINGO_MES", "COMPENSATORIA"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setType(t)}
+              className={`flex-1 rounded-card border px-3 py-2 text-xs font-semibold ${
+                type === t ? "border-vinho-500 bg-vinho-50 text-vinho-500" : "border-carvao-100 text-carvao-600"
+              }`}
+            >
+              {typeLabel[t]}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="mb-3">
         <label className="field-label" htmlFor="atribuir-data">

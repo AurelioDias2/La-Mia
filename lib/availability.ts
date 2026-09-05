@@ -15,7 +15,8 @@ export type AvailabilityReasonCode =
   | "SOLICITACAO_EXISTENTE"
   | "FUNCAO_FECHADA_NO_DIA"
   | "DIA_ALTA_DEMANDA"
-  | "FOLGA_SEMANAL_FIXA";
+  | "FOLGA_SEMANAL_FIXA"
+  | "AUTOATENDIMENTO_DESATIVADO";
 
 // Dias de alta demanda em que compensatória não pode ser usada (0=domingo,
 // 5=sexta, 6=sábado). Sextas e fins de semana são os dias de maior movimento
@@ -92,6 +93,16 @@ export async function verificarDisponibilidade(
   // de função: nesse dia ela já não trabalha, não faz sentido pedir folga.
   if (employee.weeklyDayOff !== null && data.getUTCDay() === employee.weeklyDayOff) {
     return fail("FOLGA_SEMANAL_FIXA", "Você já folga nesse dia da semana toda semana.");
+  }
+
+  // 2.1.2. Autoatendimento de compensatória pode ser desligado pela Direção
+  // (Settings.allowSelfServiceCompensatoria) — nesse caso só ela decide o
+  // dia (manualmente ou pelo sorteio). Não afeta domingo do mês nem extra.
+  if (params.type === LeaveType.COMPENSATORIA && settings?.allowSelfServiceCompensatoria === false) {
+    return fail(
+      "AUTOATENDIMENTO_DESATIVADO",
+      "No momento só a Direção define o dia da compensatória. Fale com ela."
+    );
   }
 
   // 2.2. Compensatória não pode ser usada em sexta/sábado/domingo — são os

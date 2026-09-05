@@ -201,6 +201,22 @@ describe("verificarDisponibilidade", () => {
     expect(result.motivo).toBe("DIA_ALTA_DEMANDA");
   });
 
+  it("recusa autoatendimento de compensatória quando a Direção desativa (Settings)", async () => {
+    await garantirSettings({ allowSelfServiceCompensatoria: false });
+    const funcao = await criarFuncao();
+    const { employee } = await criarFuncionario({ jobFunctionId: funcao.id });
+
+    const result = await verificarDisponibilidade(prisma, {
+      employeeId: employee.id,
+      jobFunctionId: funcao.id,
+      date: TERCA_FEIRA,
+      type: "COMPENSATORIA",
+    });
+
+    expect(result.disponivel).toBe(false);
+    expect(result.motivo).toBe("AUTOATENDIMENTO_DESATIVADO");
+  });
+
   it("retorna SEM_CREDITO quando o saldo disponível de compensatória é zero", async () => {
     const funcao = await criarFuncao();
     const { employee } = await criarFuncionario({ jobFunctionId: funcao.id });

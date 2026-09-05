@@ -23,6 +23,7 @@ export async function PATCH(req: Request) {
     fixedClosedWeekday?: number;
     requestsRequireApproval?: boolean;
     pendingRequestHoldsSlot?: boolean;
+    allowSelfServiceCompensatoria?: boolean;
   };
 
   const updated = await prisma.$transaction(async (tx) => {

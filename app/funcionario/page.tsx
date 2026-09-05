@@ -10,6 +10,7 @@ type Summary = {
   extra: { total: number; reservado: number; disponivel: number };
   domingoDisponivel: boolean;
   nextLeave: { date: string; type: string } | null;
+  allowSelfServiceCompensatoria: boolean;
 };
 
 type LeaveType = "DOMINGO_MES" | "COMPENSATORIA" | "EXTRA" | null;
@@ -82,11 +83,16 @@ export default function FuncionarioHome() {
           </button>
           <button
             onClick={() => setActiveAction(activeAction === "COMPENSATORIA" ? null : "COMPENSATORIA")}
-            disabled={summary.compensatoria.disponivel <= 0}
+            disabled={summary.compensatoria.disponivel <= 0 || !summary.allowSelfServiceCompensatoria}
             className="btn-secondary justify-start"
           >
             Usar compensatória
           </button>
+          {!summary.allowSelfServiceCompensatoria && (
+            <p className="-mt-1 text-xs text-carvao-500">
+              No momento só a Direção define o dia da compensatória.
+            </p>
+          )}
           <button
             onClick={() => setActiveAction(activeAction === "EXTRA" ? null : "EXTRA")}
             disabled={summary.extra.disponivel <= 0}
