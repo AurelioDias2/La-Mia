@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ordenarSetores, labelCargoPorSetor } from "@/lib/setores";
 
 type Employee = {
   id: string;
@@ -15,14 +16,34 @@ export default function CargosPage() {
   const [jobFunctions, setJobFunctions] = useState<JobFunction[]>([]);
   const [salvandoId, setSalvandoId] = useState<string | null>(null);
   const [salvoId, setSalvoId] = useState<string | null>(null);
+  // Setor sendo escolhido na hora (por funcionário), separado do que já está
+  // salvo — só serve pra filtrar a lista de cargo/praça/função embaixo.
+  const [setorPrincipal, setSetorPrincipal] = useState<Record<string, string>>({});
+  const [setorSecundaria, setSetorSecundaria] = useState<Record<string, string>>({});
 
   async function load() {
-    const [emps, fns] = await Promise.all([
+    const [emps, fns] = (await Promise.all([
       fetch("/api/employees?status=ATIVO").then((r) => r.json()),
       fetch("/api/job-functions").then((r) => r.json()),
-    ]);
+    ])) as [Employee[], JobFunction[]];
     setEmployees(emps);
     setJobFunctions(fns);
+    setSetorPrincipal((prev) => {
+      const next = { ...prev };
+      for (const emp of emps) {
+        if (next[emp.id]) continue;
+        next[emp.id] = emp.functions.find((f) => f.role === "PRINCIPAL")?.jobFunction.sector ?? "";
+      }
+      return next;
+    });
+    setSetorSecundaria((prev) => {
+      const next = { ...prev };
+      for (const emp of emps) {
+        if (next[emp.id]) continue;
+        next[emp.id] = emp.functions.find((f) => f.role === "SECUNDARIA")?.jobFunction.sector ?? "";
+      }
+      return next;
+    });
   }
 
   useEffect(() => {
@@ -66,6 +87,8 @@ export default function CargosPage() {
     load();
   }
 
+  const setoresDisponiveis = ordenarSetores(Array.from(new Set(jobFunctions.map((f) => f.sector))));
+
   const porSetor = new Map<string, Employee[]>();
   for (const emp of employees) {
     const setor = emp.functions.find((f) => f.role === "PRINCIPAL")?.jobFunction.sector ?? "Sem setor";
@@ -78,8 +101,8 @@ export default function CargosPage() {
     <div className="max-w-3xl">
       <h1 className="mb-1 font-display text-2xl font-semibold text-vinho-500">Cargos</h1>
       <p className="mb-4 text-sm text-carvao-500">
-        Função principal e secundária de cada funcionário ativo, numa tela só. Pra criar ou editar
-        os cargos em si (nome, setor, limites), use a tela{" "}
+        Setor, cargo/praça/função principal e secundária de cada funcionário ativo, numa tela só.
+        Pra criar ou editar os cargos em si (nome, setor, limites), use a tela{" "}
         <a href="/admin/funcoes" className="font-semibold text-vinho-500 hover:underline">
           Funções
         </a>
@@ -94,14 +117,35 @@ export default function CargosPage() {
               {emps.map((emp) => {
                 const principal = emp.functions.find((f) => f.role === "PRINCIPAL");
                 const secundaria = emp.functions.find((f) => f.role === "SECUNDARIA");
+                const setorPSelecionado = setorPrincipal[emp.id] ?? "";
+                const setorSSelecionado = setorSecundaria[emp.id] ?? "";
                 return (
-                  <div key={emp.id} className="flex flex-wrap items-center gap-2 border-b border-carvao-100 pb-3 last:border-0 last:pb-0">
-                    <p className="w-full text-sm font-semibold text-carvao-900 sm:w-auto sm:flex-1">
-                      {emp.fullName}
-                    </p>
+                  <div
+                    key={emp.id}
+                    className="flex flex-wrap items-end gap-2 border-b border-carvao-100 pb-3 last:border-0 last:pb-0"
+                  >
+                    <p className="w-full text-sm font-semibold text-carvao-900">{emp.fullName}</p>
+
                     <div className="flex flex-col gap-1">
                       <label className="text-[10px] font-semibold uppercase tracking-wide text-carvao-500">
-                        Principal
+                        Setor (principal)
+                      </label>
+                      <select
+                        className="field-input w-36 py-1.5 text-sm"
+                        value={setorPSelecionado}
+                        disabled={salvandoId === emp.id}
+                        onChange={(e) => setSetorPrincipal((prev) => ({ ...prev, [emp.id]: e.target.value }))}
+                      >
+                        {setoresDisponiveis.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-semibold uppercase tracking-wide text-carvao-500">
+                        {labelCargoPorSetor(setorPSelecionado)}
                       </label>
                       <select
                         className="field-input w-44 py-1.5 text-sm"
@@ -109,26 +153,8 @@ export default function CargosPage() {
                         disabled={salvandoId === emp.id}
                         onChange={(e) => alterarPrincipal(emp.id, e.target.value)}
                       >
-                        {jobFunctions.map((f) => (
-                          <option key={f.id} value={f.id}>
-                            {f.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-semibold uppercase tracking-wide text-carvao-500">
-                        Secundária
-                      </label>
-                      <select
-                        className="field-input w-44 py-1.5 text-sm"
-                        value={secundaria?.jobFunction.id ?? ""}
-                        disabled={salvandoId === emp.id}
-                        onChange={(e) => alterarSecundaria(emp.id, e.target.value)}
-                      >
-                        <option value="">Nenhuma</option>
                         {jobFunctions
-                          .filter((f) => f.id !== principal?.jobFunction.id)
+                          .filter((f) => f.sector === setorPSelecionado)
                           .map((f) => (
                             <option key={f.id} value={f.id}>
                               {f.name}
@@ -136,6 +162,53 @@ export default function CargosPage() {
                           ))}
                       </select>
                     </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-semibold uppercase tracking-wide text-carvao-500">
+                        Setor (secundária)
+                      </label>
+                      <select
+                        className="field-input w-36 py-1.5 text-sm"
+                        value={setorSSelecionado}
+                        disabled={salvandoId === emp.id}
+                        onChange={(e) => {
+                          const novoSetor = e.target.value;
+                          setSetorSecundaria((prev) => ({ ...prev, [emp.id]: novoSetor }));
+                          if (novoSetor === "" && secundaria) alterarSecundaria(emp.id, "");
+                        }}
+                      >
+                        <option value="">Nenhuma</option>
+                        {setoresDisponiveis.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {setorSSelecionado && (
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[10px] font-semibold uppercase tracking-wide text-carvao-500">
+                          {labelCargoPorSetor(setorSSelecionado)}
+                        </label>
+                        <select
+                          className="field-input w-44 py-1.5 text-sm"
+                          value={secundaria?.jobFunction.id ?? ""}
+                          disabled={salvandoId === emp.id}
+                          onChange={(e) => alterarSecundaria(emp.id, e.target.value)}
+                        >
+                          <option value="" disabled>
+                            Toque para selecionar
+                          </option>
+                          {jobFunctions
+                            .filter((f) => f.sector === setorSSelecionado && f.id !== principal?.jobFunction.id)
+                            .map((f) => (
+                              <option key={f.id} value={f.id}>
+                                {f.name}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    )}
                     {salvoId === emp.id && <span className="text-xs font-semibold text-oliva-500">Salvo!</span>}
                   </div>
                 );

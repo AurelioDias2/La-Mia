@@ -3,13 +3,15 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { extractErrorMessage } from "@/lib/errors";
+import { ordenarSetores, labelCargoPorSetor } from "@/lib/setores";
 
-type JobFunction = { id: string; name: string };
+type JobFunction = { id: string; name: string; sector: string };
 
 export default function CadastroPage() {
   const [jobFunctions, setJobFunctions] = useState<JobFunction[]>([]);
   const [fullName, setFullName] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
+  const [setor, setSetor] = useState("");
   const [jobFunctionId, setJobFunctionId] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -97,26 +99,54 @@ export default function CadastroPage() {
             />
           </div>
           <div>
-            <label className="field-label" htmlFor="jobFunction">
-              Função
+            <label className="field-label" htmlFor="setor">
+              Setor
             </label>
             <select
-              id="jobFunction"
+              id="setor"
               className="field-input"
-              value={jobFunctionId}
-              onChange={(e) => setJobFunctionId(e.target.value)}
+              value={setor}
+              onChange={(e) => {
+                setSetor(e.target.value);
+                setJobFunctionId("");
+              }}
               required
             >
               <option value="" disabled>
                 Toque para selecionar
               </option>
-              {jobFunctions.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
+              {ordenarSetores(Array.from(new Set(jobFunctions.map((f) => f.sector)))).map((s) => (
+                <option key={s} value={s}>
+                  {s}
                 </option>
               ))}
             </select>
           </div>
+          {setor && (
+            <div>
+              <label className="field-label" htmlFor="jobFunction">
+                {labelCargoPorSetor(setor)}
+              </label>
+              <select
+                id="jobFunction"
+                className="field-input"
+                value={jobFunctionId}
+                onChange={(e) => setJobFunctionId(e.target.value)}
+                required
+              >
+                <option value="" disabled>
+                  Toque para selecionar
+                </option>
+                {jobFunctions
+                  .filter((f) => f.sector === setor)
+                  .map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
           <div>
             <label className="field-label" htmlFor="password">
               Senha
