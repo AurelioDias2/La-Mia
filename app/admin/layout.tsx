@@ -7,6 +7,7 @@ const navItems = [
   { href: "/admin/solicitacoes", label: "Solicitações" },
   { href: "/admin/calendario", label: "Calendário" },
   { href: "/admin/creditos", label: "Créditos" },
+  { href: "/admin/folga-semanal", label: "Folga semanal" },
   { href: "/admin/lista-folgas", label: "Lista de folgas" },
   { href: "/admin/feriados", label: "Feriados" },
   { href: "/admin/funcoes", label: "Funções" },

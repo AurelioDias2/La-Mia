@@ -73,6 +73,12 @@ export function LeaveCalendar({
 
   async function confirmar() {
     if (!selected) return;
+    if (type === "DOMINGO_MES" && selected.ocupadas > 0) {
+      const prosseguir = confirm(
+        "Atenção, já existe alguém da mesma função com folga nesse dia, deseja prosseguir?"
+      );
+      if (!prosseguir) return;
+    }
     setSubmitting(true);
     setFeedback(null);
     const res = await fetch("/api/leave-requests", {
