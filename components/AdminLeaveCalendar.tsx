@@ -12,6 +12,8 @@ type LeaveEntry = {
   sector: string;
 };
 
+type DetalheSorteio = { employeeId: string; nome: string; date: string; leaveRequestId: string };
+
 type EmployeeComFolga = {
   id: string;
   fullName: string;
@@ -107,10 +109,13 @@ export function AdminLeaveCalendar() {
   const [copiado, setCopiado] = useState(false);
   const [sorteando, setSorteando] = useState(false);
   const [resultadoSorteio, setResultadoSorteio] = useState<string | null>(null);
+  const [detalhesSorteioDomingo, setDetalhesSorteioDomingo] = useState<DetalheSorteio[] | null>(null);
   const [sorteandoSemanal, setSorteandoSemanal] = useState(false);
   const [resultadoSorteioSemanal, setResultadoSorteioSemanal] = useState<string | null>(null);
   const [sorteandoComp, setSorteandoComp] = useState(false);
   const [resultadoSorteioComp, setResultadoSorteioComp] = useState<string | null>(null);
+  const [detalhesSorteioComp, setDetalhesSorteioComp] = useState<DetalheSorteio[] | null>(null);
+  const [resorteandoId, setResorteandoId] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch(`/api/admin/leave-requests?month=${month}`);
@@ -159,8 +164,10 @@ export function AdminLeaveCalendar() {
     setSelectedDate(null);
     setRelatorio(null);
     setResultadoSorteio(null);
+    setDetalhesSorteioDomingo(null);
     setResultadoSorteioSemanal(null);
     setResultadoSorteioComp(null);
+    setDetalhesSorteioComp(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month]);
 
@@ -174,6 +181,7 @@ export function AdminLeaveCalendar() {
     }
     setSorteandoComp(true);
     setResultadoSorteioComp(null);
+    setDetalhesSorteioComp(null);
     const res = await fetch("/api/admin/leave-requests/sortear-compensatoria", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -192,6 +200,39 @@ export function AdminLeaveCalendar() {
             data.erros?.length > 0 ? ` ${data.erros.length} com erro (${data.erros.map((e: any) => e.nome).join(", ")}).` : ""
           }`
     );
+    setDetalhesSorteioComp(data.detalhes?.length > 0 ? data.detalhes : null);
+    load();
+  }
+
+  // Refaz o sorteio inteiro dessa rodada (todo mundo que saiu no último
+  // resultado) — pra ajuste pontual de uma pessoa só, usa "Mudar data" ou
+  // "Excluir" direto na linha dela; sortear de novo é pra quando o
+  // resultado geral não ficou bom.
+  async function resortearLote(tipo: "DOMINGO_MES" | "COMPENSATORIA") {
+    const detalhesAtuais = tipo === "DOMINGO_MES" ? detalhesSorteioDomingo : detalhesSorteioComp;
+    if (!detalhesAtuais?.length) return;
+    if (!confirm(`Sortear de novo esse resultado inteiro (${detalhesAtuais.length} pessoa${detalhesAtuais.length > 1 ? "s" : ""})?`)) {
+      return;
+    }
+    const employeeIds = detalhesAtuais.map((d) => d.employeeId);
+    setResorteandoId(tipo);
+    const url =
+      tipo === "DOMINGO_MES"
+        ? "/api/admin/leave-requests/sortear-domingos"
+        : "/api/admin/leave-requests/sortear-compensatoria";
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ month, employeeIds }),
+    });
+    setResorteandoId(null);
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error ?? "Não foi possível sortear de novo.");
+      return;
+    }
+    if (tipo === "DOMINGO_MES") setDetalhesSorteioDomingo(data.detalhes?.length > 0 ? data.detalhes : null);
+    else setDetalhesSorteioComp(data.detalhes?.length > 0 ? data.detalhes : null);
     load();
   }
 
@@ -232,6 +273,7 @@ export function AdminLeaveCalendar() {
     }
     setSorteando(true);
     setResultadoSorteio(null);
+    setDetalhesSorteioDomingo(null);
     const res = await fetch("/api/admin/leave-requests/sortear-domingos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -250,6 +292,7 @@ export function AdminLeaveCalendar() {
             data.erros?.length > 0 ? ` ${data.erros.length} com erro (${data.erros.map((e: any) => e.nome).join(", ")}).` : ""
           }`
     );
+    setDetalhesSorteioDomingo(data.detalhes?.length > 0 ? data.detalhes : null);
     load();
   }
 
@@ -262,6 +305,10 @@ export function AdminLeaveCalendar() {
       body: JSON.stringify({ action: "CANCELAR_DIRETO" }),
     });
     setBusyId(null);
+    const remover = (prev: DetalheSorteio[] | null) =>
+      prev ? prev.filter((d) => d.leaveRequestId !== id) : prev;
+    setDetalhesSorteioDomingo(remover);
+    setDetalhesSorteioComp(remover);
     load();
   }
 
@@ -283,6 +330,10 @@ export function AdminLeaveCalendar() {
     setBusyId(null);
     if (res.ok) {
       setChangingDateId(null);
+      const atualizar = (prev: DetalheSorteio[] | null) =>
+        prev ? prev.map((d) => (d.leaveRequestId === id ? { ...d, date: newDateValue } : d)) : prev;
+      setDetalhesSorteioDomingo(atualizar);
+      setDetalhesSorteioComp(atualizar);
       load();
     } else {
       const data = await res.json().catch(() => null);
@@ -483,6 +534,70 @@ export function AdminLeaveCalendar() {
         {sorteando ? "Sorteando…" : "Sortear domingos do mês (quem falta)"}
       </button>
       {resultadoSorteio && <p className="mt-2 text-sm text-carvao-700">{resultadoSorteio}</p>}
+      {detalhesSorteioDomingo && (
+        <div className="mt-2 space-y-2">
+          {detalhesSorteioDomingo.map((d) => (
+            <div key={d.leaveRequestId} className="rounded-card border border-carvao-100 bg-crosta-50 p-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm text-carvao-900">
+                  {d.nome} — {d.date.split("-").reverse().slice(0, 2).join("/")}
+                </p>
+                {changingDateId !== d.leaveRequestId && (
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      onClick={() => abrirMudarData(d.leaveRequestId, d.date)}
+                      className="text-xs font-semibold text-carvao-700 hover:underline"
+                    >
+                      Mudar data
+                    </button>
+                    <button
+                      disabled={busyId === d.leaveRequestId}
+                      onClick={() => cancelarDireto(d.leaveRequestId)}
+                      className="text-xs font-semibold text-vinho-500 hover:underline"
+                    >
+                      Excluir
+                    </button>
+                  </div>
+                )}
+              </div>
+              {changingDateId === d.leaveRequestId && (
+                <div className="mt-2 space-y-2">
+                  <input
+                    type="date"
+                    className="field-input"
+                    value={newDateValue}
+                    onChange={(ev) => setNewDateValue(ev.target.value)}
+                  />
+                  {changeError && <p className="text-xs text-vinho-500">{changeError}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      disabled={busyId === d.leaveRequestId || !newDateValue}
+                      onClick={() => confirmarMudarData(d.leaveRequestId)}
+                      className="btn-primary flex-1 text-xs"
+                    >
+                      Confirmar
+                    </button>
+                    <button
+                      disabled={busyId === d.leaveRequestId}
+                      onClick={() => setChangingDateId(null)}
+                      className="btn-secondary flex-1 text-xs"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+          <button
+            onClick={() => resortearLote("DOMINGO_MES")}
+            disabled={resorteandoId === "DOMINGO_MES"}
+            className="w-full text-xs font-semibold text-crosta-500 hover:underline"
+          >
+            {resorteandoId === "DOMINGO_MES" ? "Sorteando…" : "Sortear de novo esse resultado inteiro"}
+          </button>
+        </div>
+      )}
 
       <button
         onClick={sortearFolgaSemanal}
@@ -501,6 +616,70 @@ export function AdminLeaveCalendar() {
         {sorteandoComp ? "Sorteando…" : "Sortear compensatória (quem tem crédito)"}
       </button>
       {resultadoSorteioComp && <p className="mt-2 text-sm text-carvao-700">{resultadoSorteioComp}</p>}
+      {detalhesSorteioComp && (
+        <div className="mt-2 space-y-2">
+          {detalhesSorteioComp.map((d) => (
+            <div key={d.leaveRequestId} className="rounded-card border border-carvao-100 bg-crosta-50 p-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm text-carvao-900">
+                  {d.nome} — {d.date.split("-").reverse().slice(0, 2).join("/")}
+                </p>
+                {changingDateId !== d.leaveRequestId && (
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      onClick={() => abrirMudarData(d.leaveRequestId, d.date)}
+                      className="text-xs font-semibold text-carvao-700 hover:underline"
+                    >
+                      Mudar data
+                    </button>
+                    <button
+                      disabled={busyId === d.leaveRequestId}
+                      onClick={() => cancelarDireto(d.leaveRequestId)}
+                      className="text-xs font-semibold text-vinho-500 hover:underline"
+                    >
+                      Excluir
+                    </button>
+                  </div>
+                )}
+              </div>
+              {changingDateId === d.leaveRequestId && (
+                <div className="mt-2 space-y-2">
+                  <input
+                    type="date"
+                    className="field-input"
+                    value={newDateValue}
+                    onChange={(ev) => setNewDateValue(ev.target.value)}
+                  />
+                  {changeError && <p className="text-xs text-vinho-500">{changeError}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      disabled={busyId === d.leaveRequestId || !newDateValue}
+                      onClick={() => confirmarMudarData(d.leaveRequestId)}
+                      className="btn-primary flex-1 text-xs"
+                    >
+                      Confirmar
+                    </button>
+                    <button
+                      disabled={busyId === d.leaveRequestId}
+                      onClick={() => setChangingDateId(null)}
+                      className="btn-secondary flex-1 text-xs"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+          <button
+            onClick={() => resortearLote("COMPENSATORIA")}
+            disabled={resorteandoId === "COMPENSATORIA"}
+            className="w-full text-xs font-semibold text-crosta-500 hover:underline"
+          >
+            {resorteandoId === "COMPENSATORIA" ? "Sorteando…" : "Sortear de novo esse resultado inteiro"}
+          </button>
+        </div>
+      )}
 
       {relatorio && (
         <div className="mt-3 rounded-card border border-carvao-100 bg-crosta-50 p-3">

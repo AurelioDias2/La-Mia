@@ -102,12 +102,16 @@ export default function FolgaSemanalPage() {
     load();
   }
 
-  const porSetor = new Map<string, Employee[]>();
+  const porSetor = new Map<string, Map<string, Employee[]>>();
   for (const emp of employees) {
-    const setor = emp.functions.find((f) => f.role === "PRINCIPAL")?.jobFunction.sector ?? "Sem setor";
-    const lista = porSetor.get(setor) ?? [];
+    const principal = emp.functions.find((f) => f.role === "PRINCIPAL")?.jobFunction;
+    const setor = principal?.sector ?? "Sem setor";
+    const praca = principal?.name ?? "Sem praça";
+    const porPraca = porSetor.get(setor) ?? new Map<string, Employee[]>();
+    const lista = porPraca.get(praca) ?? [];
     lista.push(emp);
-    porSetor.set(setor, lista);
+    porPraca.set(praca, lista);
+    porSetor.set(setor, porPraca);
   }
 
   return (
@@ -126,7 +130,7 @@ export default function FolgaSemanalPage() {
       </div>
 
       <div className="space-y-4">
-        {Array.from(porSetor.entries()).map(([setor, emps]) => (
+        {Array.from(porSetor.entries()).map(([setor, porPraca]) => (
           <div key={setor} className="card">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-wide text-carvao-500">{setor}</p>
@@ -142,24 +146,31 @@ export default function FolgaSemanalPage() {
             {resultadoSorteioSetor[setor] && (
               <p className="mb-2 text-xs text-carvao-700">{resultadoSorteioSetor[setor]}</p>
             )}
-            <div className="space-y-2">
-              {emps.map((emp) => (
-                <div key={emp.id} className="flex items-center gap-2">
-                  <p className="flex-1 text-sm text-carvao-900">{emp.fullName}</p>
-                  <select
-                    className="field-input w-40 py-1.5 text-sm"
-                    value={emp.weeklyDayOff ?? ""}
-                    disabled={salvandoId === emp.id}
-                    onChange={(e) => alterar(emp.id, e.target.value)}
-                  >
-                    <option value="">Nenhuma</option>
-                    {DIAS_SEMANA_LABEL.map((label, i) => (
-                      <option key={i} value={i}>
-                        {label}
-                      </option>
+            <div className="space-y-3 border-l-2 border-crosta-100 pl-2">
+              {Array.from(porPraca.entries()).map(([praca, emps]) => (
+                <div key={praca}>
+                  <p className="mb-1 text-[11px] font-semibold text-carvao-500">{praca}</p>
+                  <div className="space-y-2">
+                    {emps.map((emp) => (
+                      <div key={emp.id} className="flex items-center gap-2">
+                        <p className="flex-1 text-sm text-carvao-900">{emp.fullName}</p>
+                        <select
+                          className="field-input w-36 py-1.5 text-sm"
+                          value={emp.weeklyDayOff ?? ""}
+                          disabled={salvandoId === emp.id}
+                          onChange={(e) => alterar(emp.id, e.target.value)}
+                        >
+                          <option value="">Nenhuma</option>
+                          {DIAS_SEMANA_LABEL.map((label, i) => (
+                            <option key={i} value={i}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                        {salvoId === emp.id && <span className="text-xs font-semibold text-oliva-500">Salvo!</span>}
+                      </div>
                     ))}
-                  </select>
-                  {salvoId === emp.id && <span className="text-xs font-semibold text-oliva-500">Salvo!</span>}
+                  </div>
                 </div>
               ))}
             </div>

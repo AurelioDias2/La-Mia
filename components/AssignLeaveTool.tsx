@@ -29,12 +29,16 @@ export function AssignLeaveTool() {
       .then(setEmployees);
   }, []);
 
-  const porSetor = new Map<string, Employee[]>();
+  const porSetor = new Map<string, Map<string, Employee[]>>();
   for (const emp of employees) {
-    const setor = emp.functions.find((f) => f.role === "PRINCIPAL")?.jobFunction.sector ?? "Sem setor";
-    const lista = porSetor.get(setor) ?? [];
+    const principal = emp.functions.find((f) => f.role === "PRINCIPAL")?.jobFunction;
+    const setor = principal?.sector ?? "Sem setor";
+    const praca = principal?.name ?? "Sem praça";
+    const porPraca = porSetor.get(setor) ?? new Map<string, Employee[]>();
+    const lista = porPraca.get(praca) ?? [];
     lista.push(emp);
-    porSetor.set(setor, lista);
+    porPraca.set(praca, lista);
+    porSetor.set(setor, porPraca);
   }
 
   function toggle(id: string) {
@@ -46,12 +50,15 @@ export function AssignLeaveTool() {
     });
   }
 
-  function toggleSetor(setor: string) {
-    const idsDoSetor = (porSetor.get(setor) ?? []).map((e) => e.id);
-    const todosSelecionados = idsDoSetor.every((id) => selected.has(id));
+  function idsDoGrupo(porPraca: Map<string, Employee[]>): string[] {
+    return Array.from(porPraca.values()).flat().map((e) => e.id);
+  }
+
+  function toggleIds(ids: string[]) {
+    const todosSelecionados = ids.every((id) => selected.has(id));
     setSelected((prev) => {
       const next = new Set(prev);
-      for (const id of idsDoSetor) {
+      for (const id of ids) {
         if (todosSelecionados) next.delete(id);
         else next.add(id);
       }
@@ -125,34 +132,54 @@ export function AssignLeaveTool() {
         />
       </div>
 
-      <div className="mb-3 max-h-72 space-y-3 overflow-y-auto">
-        {Array.from(porSetor.entries()).map(([setor, emps]) => {
-          const idsDoSetor = emps.map((e) => e.id);
-          const todosSelecionados = idsDoSetor.every((id) => selected.has(id));
+      <div className="mb-3 max-h-96 space-y-4 overflow-y-auto">
+        {Array.from(porSetor.entries()).map(([setor, porPraca]) => {
+          const idsSetor = idsDoGrupo(porPraca);
+          const setorTodoSelecionado = idsSetor.every((id) => selected.has(id));
           return (
             <div key={setor}>
               <div className="mb-1 flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-wide text-carvao-500">{setor}</p>
                 <button
                   type="button"
-                  onClick={() => toggleSetor(setor)}
+                  onClick={() => toggleIds(idsSetor)}
                   className="text-xs font-semibold text-vinho-500 hover:underline"
                 >
-                  {todosSelecionados ? "Desmarcar setor" : "Marcar setor inteiro"}
+                  {setorTodoSelecionado ? "Desmarcar setor" : "Marcar setor inteiro"}
                 </button>
               </div>
-              <div className="space-y-1">
-                {emps.map((emp) => (
-                  <label key={emp.id} className="flex items-center gap-2 text-sm text-carvao-700">
-                    <input
-                      type="checkbox"
-                      checked={selected.has(emp.id)}
-                      onChange={() => toggle(emp.id)}
-                      className="h-4 w-4 accent-vinho-500"
-                    />
-                    {emp.fullName}
-                  </label>
-                ))}
+              <div className="space-y-2 border-l-2 border-crosta-100 pl-2">
+                {Array.from(porPraca.entries()).map(([praca, emps]) => {
+                  const idsPraca = emps.map((e) => e.id);
+                  const pracaTodaSelecionada = idsPraca.every((id) => selected.has(id));
+                  return (
+                    <div key={praca}>
+                      <div className="mb-0.5 flex items-center justify-between">
+                        <p className="text-[11px] font-semibold text-carvao-500">{praca}</p>
+                        <button
+                          type="button"
+                          onClick={() => toggleIds(idsPraca)}
+                          className="text-[11px] font-semibold text-vinho-500 hover:underline"
+                        >
+                          {pracaTodaSelecionada ? "Desmarcar praça" : "Marcar praça inteira"}
+                        </button>
+                      </div>
+                      <div className="space-y-1">
+                        {emps.map((emp) => (
+                          <label key={emp.id} className="flex items-center gap-2 text-sm text-carvao-700">
+                            <input
+                              type="checkbox"
+                              checked={selected.has(emp.id)}
+                              onChange={() => toggle(emp.id)}
+                              className="h-4 w-4 accent-vinho-500"
+                            />
+                            {emp.fullName}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );

@@ -16,15 +16,19 @@ type Body = {
   // abrir todos os dias. Produção normalmente não precisa disso: o dia
   // de cada um é fixo e raramente muda.
   sobrescrever?: boolean;
+  // Lista específica de funcionários pra re-sortear (ex: "não gostei
+  // desse resultado, sorteia de novo só pra essa pessoa"). Se informado,
+  // ignora sector/sobrescrever e sempre redefine essas pessoas.
+  employeeIds?: string[];
 };
 
 // POST /api/admin/employees/sortear-folga-semanal
 // Sorteia o dia fixo de folga semanal (Employee.weeklyDayOff). Sem
-// "sector"/"sobrescrever", sorteia só quem ainda não tem um dia definido,
-// em qualquer setor — não mexe em quem a Direção já configurou
-// manualmente. Distribuição balanceada (lib/sorteio): nunca concentra uma
-// função/praça inteira no mesmo dia da semana, considerando quem já tem
-// um dia fixo definido pra manter a escala toda equilibrada.
+// parâmetros, sorteia só quem ainda não tem um dia definido, em qualquer
+// setor — não mexe em quem a Direção já configurou manualmente.
+// Distribuição balanceada (lib/sorteio): nunca concentra uma função/praça
+// inteira no mesmo dia da semana, considerando quem já tem um dia fixo
+// definido pra manter a escala toda equilibrada.
 export async function POST(req: Request) {
   const { session, error } = await requireDirector();
   if (error) return NextResponse.json({ error }, { status: 401 });
@@ -36,12 +40,17 @@ export async function POST(req: Request) {
     include: { functions: { where: { role: "PRINCIPAL" }, include: { jobFunction: true } } },
   });
 
-  const doSetor = body.sector
-    ? employees.filter((e) => e.functions[0]?.jobFunction.sector === body.sector)
-    : employees;
+  let doSetor = employees;
+  if (body.employeeIds?.length) {
+    const idsSet = new Set(body.employeeIds);
+    doSetor = employees.filter((e) => idsSet.has(e.id));
+  } else if (body.sector) {
+    doSetor = employees.filter((e) => e.functions[0]?.jobFunction.sector === body.sector);
+  }
 
+  const sobrescrever = Boolean(body.employeeIds?.length) || Boolean(body.sobrescrever);
   const candidatos = doSetor
-    .filter((e) => e.functions[0]?.jobFunctionId && (body.sobrescrever || e.weeklyDayOff === null))
+    .filter((e) => e.functions[0]?.jobFunctionId && (sobrescrever || e.weeklyDayOff === null))
     .map((e) => ({ id: e.id, jobFunctionId: e.functions[0].jobFunctionId }));
   const idsCandidatos = new Set(candidatos.map((c) => c.id));
 
@@ -58,9 +67,11 @@ export async function POST(req: Request) {
   }
 
   const escolhas = distribuirBalanceado(candidatos, slots, contagemPorSlotFuncao, contagemPorSlot);
+  const nomes = new Map(employees.map((e) => [e.id, e.fullName]));
 
   let atribuidos = 0;
   const erros: { employeeId: string; nome: string; message: string }[] = [];
+  const detalhes: { employeeId: string; nome: string; weeklyDayOff: number }[] = [];
 
   for (const pessoa of candidatos) {
     const weeklyDayOff = Number(escolhas.get(pessoa.id)!);
@@ -76,15 +87,15 @@ export async function POST(req: Request) {
         });
       });
       atribuidos++;
+      detalhes.push({ employeeId: pessoa.id, nome: nomes.get(pessoa.id) ?? pessoa.id, weeklyDayOff });
     } catch (e) {
-      const employee = await prisma.employee.findUnique({ where: { id: pessoa.id } });
       erros.push({
         employeeId: pessoa.id,
-        nome: employee?.fullName ?? pessoa.id,
+        nome: nomes.get(pessoa.id) ?? pessoa.id,
         message: e instanceof Error ? e.message : "Erro desconhecido.",
       });
     }
   }
 
-  return NextResponse.json({ atribuidos, erros, semFolgaAntes: candidatos.length });
+  return NextResponse.json({ atribuidos, erros, semFolgaAntes: candidatos.length, detalhes });
 }

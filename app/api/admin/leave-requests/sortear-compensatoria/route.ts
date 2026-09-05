@@ -7,6 +7,11 @@ import { distribuirBalanceado } from "@/lib/sorteio";
 
 type Body = {
   month: string; // "YYYY-MM"
+  // Lista específica de funcionários pra re-sortear (ex: "não gostei desse
+  // resultado, sorteia de novo só pra essa pessoa"). Cancela a
+  // compensatória ativa atual dessas pessoas (estornando o crédito) e
+  // sorteia de novo, contanto que sobre crédito disponível.
+  employeeIds?: string[];
 };
 
 // Dias de alta demanda (0=domingo, 5=sexta, 6=sábado) — mesma regra do
@@ -24,11 +29,13 @@ function diasValidosDoMes(year: number, month: number): Date[] {
 }
 
 // POST /api/admin/leave-requests/sortear-compensatoria
-// Sorteia um dia de compensatória pra quem já tem crédito disponível e
-// ainda não usou nenhum esse mês — usa 1 crédito já existente (não concede
-// crédito novo, diferente do /atribuir manual). Nunca em dia de alta
-// demanda. Distribuição balanceada (lib/sorteio): nunca concentra uma
-// função no mesmo dia, considerando o que já existe no mês.
+// Sem "employeeIds", sorteia um dia de compensatória pra quem já tem
+// crédito disponível e ainda não usou nenhum esse mês — usa crédito já
+// existente (não concede novo). Com "employeeIds", cancela (estornando o
+// crédito) e re-sorteia só essas pessoas. Nunca em dia de alta demanda.
+// Distribuição balanceada (lib/sorteio): nunca concentra uma função/praça
+// no mesmo dia — só conflita quando não há dias suficientes pra todo
+// mundo daquela praça.
 export async function POST(req: Request) {
   const { session, error } = await requireDirector();
   if (error) return NextResponse.json({ error }, { status: 401 });
@@ -52,6 +59,7 @@ export async function POST(req: Request) {
     where: { status: "ATIVO" },
     include: { functions: { where: { role: "PRINCIPAL" } } },
   });
+  const nomes = new Map(employees.map((e) => [e.id, e.fullName]));
 
   const existentes = await prisma.leaveRequest.findMany({
     where: {
@@ -60,11 +68,45 @@ export async function POST(req: Request) {
       status: { in: ["PENDENTE", "APROVADA"] },
     },
   });
-  const employeeIdsComCompensatoria = new Set(existentes.map((e) => e.employeeId));
+  const idsResorteio = new Set(body.employeeIds ?? []);
+  const existentesPorEmployee = new Map(existentes.map((e) => [e.employeeId, e]));
+
+  // Cancela (estornando o crédito) quem está sendo re-sorteado antes de
+  // calcular saldo/candidatos — senão ela continuaria "já usada esse mês".
+  for (const employeeId of idsResorteio) {
+    const existente = existentesPorEmployee.get(employeeId);
+    if (!existente) continue;
+    await prisma.$transaction(async (tx) => {
+      await tx.leaveRequest.update({
+        where: { id: existente.id },
+        data: { status: "CANCELADA", decidedAt: new Date(), decidedById: session!.user.id },
+      });
+      if (existente.creditTransactionId) {
+        await tx.leaveCreditTransaction.create({
+          data: {
+            employeeId,
+            creditType: "COMPENSATORIA",
+            kind: "ESTORNO",
+            amount: 1,
+            reason: "Estorno por re-sorteio a pedido da Direção",
+            createdById: session!.user.id,
+          },
+        });
+      }
+      await logAudit(tx, {
+        actorId: session!.user.id,
+        action: "LEAVE_CANCELLED_BY_DIRECTOR",
+        targetType: "LeaveRequest",
+        targetId: existente.id,
+        metadata: { motivo: "Re-sorteado a pedido da Direção" },
+      });
+    });
+  }
 
   const contagemPorSlot = new Map<string, number>();
   const contagemPorSlotFuncao = new Map<string, number>();
   for (const existente of existentes) {
+    if (idsResorteio.has(existente.employeeId)) continue;
     const slot = existente.date.toISOString().slice(0, 10);
     contagemPorSlot.set(slot, (contagemPorSlot.get(slot) ?? 0) + 1);
     const chave = `${slot}|${existente.jobFunctionId}`;
@@ -74,7 +116,9 @@ export async function POST(req: Request) {
   const candidatos: { id: string; jobFunctionId: string }[] = [];
   for (const e of employees) {
     const jobFunctionId = e.functions[0]?.jobFunctionId;
-    if (!jobFunctionId || employeeIdsComCompensatoria.has(e.id)) continue;
+    if (!jobFunctionId) continue;
+    const jaTemEsseMes = existentesPorEmployee.has(e.id) && !idsResorteio.has(e.id);
+    if (jaTemEsseMes) continue;
     const saldo = await calcularSaldoCredito(prisma, e.id, "COMPENSATORIA");
     if (saldo.disponivel > 0) candidatos.push({ id: e.id, jobFunctionId });
   }
@@ -83,12 +127,13 @@ export async function POST(req: Request) {
 
   let criados = 0;
   const erros: { employeeId: string; nome: string; message: string }[] = [];
+  const detalhes: { employeeId: string; nome: string; date: string; leaveRequestId: string }[] = [];
 
   for (const pessoa of candidatos) {
     const slot = escolhas.get(pessoa.id)!;
     const date = new Date(`${slot}T00:00:00.000Z`);
     try {
-      await prisma.$transaction(async (tx) => {
+      const novoId = await prisma.$transaction(async (tx) => {
         const consumo = await tx.leaveCreditTransaction.create({
           data: {
             employeeId: pessoa.id,
@@ -118,17 +163,18 @@ export async function POST(req: Request) {
           targetId: novo.id,
           metadata: { type: "COMPENSATORIA", date: slot, sorteio: true },
         });
+        return novo.id;
       });
       criados++;
+      detalhes.push({ employeeId: pessoa.id, nome: nomes.get(pessoa.id) ?? pessoa.id, date: slot, leaveRequestId: novoId });
     } catch (e) {
-      const employee = await prisma.employee.findUnique({ where: { id: pessoa.id } });
       erros.push({
         employeeId: pessoa.id,
-        nome: employee?.fullName ?? pessoa.id,
+        nome: nomes.get(pessoa.id) ?? pessoa.id,
         message: e instanceof Error ? e.message : "Erro desconhecido.",
       });
     }
   }
 
-  return NextResponse.json({ criados, erros, comCreditoAntes: candidatos.length });
+  return NextResponse.json({ criados, erros, comCreditoAntes: candidatos.length, detalhes });
 }
