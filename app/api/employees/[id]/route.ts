@@ -43,6 +43,7 @@ type Action =
   | { action: "REATIVAR" }
   | { action: "ALTERAR_FUNCAO_PRINCIPAL"; jobFunctionId: string }
   | { action: "ADICIONAR_FUNCAO_SECUNDARIA"; jobFunctionId: string }
+  | { action: "REMOVER_FUNCAO_SECUNDARIA" }
   | { action: "ALTERAR_FOLGA_SEMANAL"; weeklyDayOff: number | null }
   | { action: "REDEFINIR_SENHA" };
 
@@ -161,6 +162,18 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
           targetType: "Employee",
           targetId: params.id,
           metadata: { jobFunctionId: body.jobFunctionId },
+        });
+        return tx.employee.findUnique({ where: { id: params.id }, include: { functions: true } });
+      }
+      case "REMOVER_FUNCAO_SECUNDARIA": {
+        await tx.employeeFunction.deleteMany({
+          where: { employeeId: params.id, role: "SECUNDARIA" },
+        });
+        await logAudit(tx, {
+          actorId: session!.user.id,
+          action: "EMPLOYEE_SECONDARY_FUNCTION_REMOVED",
+          targetType: "Employee",
+          targetId: params.id,
         });
         return tx.employee.findUnique({ where: { id: params.id }, include: { functions: true } });
       }

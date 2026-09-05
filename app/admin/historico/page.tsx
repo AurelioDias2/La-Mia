@@ -19,6 +19,7 @@ const actionText: Record<string, string> = {
   EMPLOYEE_DEACTIVATED: "Diretor desativou o funcionário",
   EMPLOYEE_PRIMARY_FUNCTION_CHANGED: "Diretor alterou a função principal",
   EMPLOYEE_SECONDARY_FUNCTION_SET: "Diretor definiu a função secundária",
+  EMPLOYEE_SECONDARY_FUNCTION_REMOVED: "Diretor removeu a função secundária",
   EMPLOYEE_WEEKLY_DAY_OFF_CHANGED: "Diretor alterou a folga semanal fixa",
   LEAVE_REQUESTED: "Funcionário solicitou folga",
   LEAVE_APPROVED: "Diretor aprovou a folga",

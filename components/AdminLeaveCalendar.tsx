@@ -54,6 +54,7 @@ export function AdminLeaveCalendar() {
   const now = new Date();
   const [month, setMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   const [entries, setEntries] = useState<LeaveEntry[]>([]);
+  const [setoresAtivos, setSetoresAtivos] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [changingDateId, setChangingDateId] = useState<string | null>(null);
@@ -64,6 +65,8 @@ export function AdminLeaveCalendar() {
   const [copiado, setCopiado] = useState(false);
   const [sorteando, setSorteando] = useState(false);
   const [resultadoSorteio, setResultadoSorteio] = useState<string | null>(null);
+  const [sorteandoSemanal, setSorteandoSemanal] = useState(false);
+  const [resultadoSorteioSemanal, setResultadoSorteioSemanal] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch(`/api/admin/leave-requests?month=${month}`);
@@ -71,12 +74,48 @@ export function AdminLeaveCalendar() {
   }
 
   useEffect(() => {
+    // Lista de setores independente do mês — senão um setor sem nenhuma
+    // folga aprovada/pendente ainda esse mês (ex: Serviços Gerais recém
+    // criado) nunca aparece como aba.
+    fetch("/api/job-functions")
+      .then((r) => r.json())
+      .then((fns: { sector: string }[]) => setSetoresAtivos(Array.from(new Set(fns.map((f) => f.sector)))));
+  }, []);
+
+  useEffect(() => {
     load();
     setSelectedDate(null);
     setRelatorio(null);
     setResultadoSorteio(null);
+    setResultadoSorteioSemanal(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month]);
+
+  async function sortearFolgaSemanal() {
+    if (
+      !confirm(
+        "Sortear a folga semanal de todo mundo que ainda não tem uma definida? Distribui entre segunda e sábado, sem concentrar uma função inteira no mesmo dia. Quem já tem um dia definido não é afetado."
+      )
+    ) {
+      return;
+    }
+    setSorteandoSemanal(true);
+    setResultadoSorteioSemanal(null);
+    const res = await fetch("/api/admin/employees/sortear-folga-semanal", { method: "POST" });
+    setSorteandoSemanal(false);
+    const data = await res.json();
+    if (!res.ok) {
+      setResultadoSorteioSemanal(data.error ?? "Não foi possível sortear a folga semanal.");
+      return;
+    }
+    setResultadoSorteioSemanal(
+      data.semFolgaAntes === 0
+        ? "Todo mundo já tinha uma folga semanal definida."
+        : `${data.atribuidos} de ${data.semFolgaAntes} sorteados.${
+            data.erros?.length > 0 ? ` ${data.erros.length} com erro (${data.erros.map((e: any) => e.nome).join(", ")}).` : ""
+          }`
+    );
+  }
 
   async function sortearDomingos() {
     if (
@@ -186,7 +225,10 @@ export function AdminLeaveCalendar() {
   const monthLabel = `${MESES[m - 1]} de ${year}`;
   const daysInMonth = new Date(Date.UTC(year, m, 0)).getUTCDate();
 
-  const setores = ["Todos", ...Array.from(new Set(entries.map((e) => e.sector))).sort()];
+  const setores = [
+    "Todos",
+    ...Array.from(new Set([...setoresAtivos, ...entries.map((e) => e.sector)])).sort(),
+  ];
   const entriesDoSetor =
     sectorFilter === "Todos" ? entries : entries.filter((e) => e.sector === sectorFilter);
 
@@ -312,6 +354,15 @@ export function AdminLeaveCalendar() {
         {sorteando ? "Sorteando…" : "Sortear domingos do mês (quem falta)"}
       </button>
       {resultadoSorteio && <p className="mt-2 text-sm text-carvao-700">{resultadoSorteio}</p>}
+
+      <button
+        onClick={sortearFolgaSemanal}
+        disabled={sorteandoSemanal}
+        className="btn-secondary mt-2 w-full text-sm"
+      >
+        {sorteandoSemanal ? "Sorteando…" : "Sortear folga semanal (quem falta)"}
+      </button>
+      {resultadoSorteioSemanal && <p className="mt-2 text-sm text-carvao-700">{resultadoSorteioSemanal}</p>}
 
       {relatorio && (
         <div className="mt-3 rounded-card border border-carvao-100 bg-crosta-50 p-3">
