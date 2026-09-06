@@ -40,6 +40,8 @@ export default function FichaFuncionarioPage({ params }: { params: { id: string 
   const [correctReason, setCorrectReason] = useState("");
   const [correctError, setCorrectError] = useState<string | null>(null);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleted, setDeleted] = useState(false);
   const [editingPrincipal, setEditingPrincipal] = useState(false);
   const [principalId, setPrincipalId] = useState("");
   const [editingWeeklyDayOff, setEditingWeeklyDayOff] = useState(false);
@@ -167,6 +169,37 @@ export default function FichaFuncionarioPage({ params }: { params: { id: string 
     });
     setBusy(false);
     load();
+  }
+
+  async function excluir() {
+    if (
+      !confirm(
+        `Excluir ${detail?.fullName} de vez? Isso apaga o cadastro (não dá pra desfazer) — só funciona se ela nunca teve nenhuma folga ou crédito lançado. Pra quem já trabalhou de verdade, use "Desativar" em vez disso.`
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setDeleteError(null);
+    const res = await fetch(`/api/employees/${params.id}`, { method: "DELETE" });
+    setBusy(false);
+    if (res.ok) {
+      setDeleted(true);
+    } else {
+      const data = await res.json().catch(() => null);
+      setDeleteError(extractErrorMessage(data, "Não foi possível excluir."));
+    }
+  }
+
+  if (deleted) {
+    return (
+      <div className="max-w-lg">
+        <p className="card text-sm text-carvao-700">Cadastro excluído.</p>
+        <a href="/admin/funcionarios" className="mt-4 inline-block text-sm text-vinho-500 hover:underline">
+          ← Voltar pra lista de funcionários
+        </a>
+      </div>
+    );
   }
 
   if (!detail) return <p className="text-carvao-500">Carregando…</p>;
@@ -453,6 +486,14 @@ export default function FichaFuncionarioPage({ params }: { params: { id: string 
             Reativar funcionário
           </button>
         )}
+        <button disabled={busy} onClick={excluir} className="btn-secondary block w-full text-vinho-500">
+          Excluir funcionário
+        </button>
+        <p className="-mt-1 text-xs text-carvao-500">
+          Apaga o cadastro de vez — só funciona se nunca teve folga nem crédito lançado (ex: cadastro
+          duplicado por engano). Pra quem já trabalhou, use "Desativar" pra manter o histórico.
+        </p>
+        {deleteError && <p className="text-sm text-vinho-500">{deleteError}</p>}
       </div>
     </div>
   );

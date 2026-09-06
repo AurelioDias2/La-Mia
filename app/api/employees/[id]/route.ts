@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireDirector } from "@/lib/session";
 import { logAudit } from "@/lib/audit";
@@ -199,4 +200,47 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   });
 
   return NextResponse.json(result);
+}
+
+// DELETE /api/employees/[id]
+// Exclusão de verdade (apaga o registro), diferente de DESATIVAR — pensada
+// pra corrigir cadastro feito errado (ex: duplicado sem querer), não pra
+// demissão. Só é permitida quando o funcionário nunca teve nenhuma folga
+// nem crédito lançado: as tabelas de folgas/créditos têm ON DELETE RESTRICT
+// pra Employee de propósito, então qualquer histórico real bloqueia a
+// exclusão automaticamente (Postgres recusa e a transação é desfeita) —
+// nesse caso a Direção usa "Desativar" pra manter o histórico.
+export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+  const { session, error } = await requireDirector();
+  if (error) return NextResponse.json({ error }, { status: 401 });
+
+  const employee = await prisma.employee.findUnique({ where: { id: params.id } });
+  if (!employee) return NextResponse.json({ error: "Funcionário não encontrado." }, { status: 404 });
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await logAudit(tx, {
+        actorId: session!.user.id,
+        action: "EMPLOYEE_DELETED",
+        targetType: "Employee",
+        targetId: params.id,
+        metadata: { fullName: employee.fullName, whatsapp: employee.whatsapp },
+      });
+      // Apaga o User: por cascata (onDelete: Cascade no schema), o próprio
+      // Employee e suas EmployeeFunction somem junto.
+      await tx.user.delete({ where: { id: employee.userId } });
+    });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2003") {
+      return NextResponse.json(
+        {
+          error: "Esse funcionário já tem folgas ou créditos registrados — excluir apagaria esse histórico. Use \"Desativar\" pra manter o histórico e tirar o acesso dela.",
+        },
+        { status: 409 }
+      );
+    }
+    throw e;
+  }
+
+  return NextResponse.json({ deleted: true });
 }
