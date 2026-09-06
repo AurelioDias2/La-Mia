@@ -29,6 +29,12 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Funcionário sem função principal." }, { status: 400 });
   }
 
+  // Quem já folga toda semana no domingo pede "DOMINGO_MES" igual todo
+  // mundo — a tela não muda — mas o backend troca sozinho pro tipo
+  // substituto, que oferece dias de semana no lugar de domingos.
+  const effectiveType =
+    type === "DOMINGO_MES" && employee?.weeklyDayOff === 0 ? "DOMINGO_MES_SUBSTITUTO" : type;
+
   const [year, m] = month.split("-").map(Number);
   const daysInMonth = new Date(Date.UTC(year, m, 0)).getUTCDate();
 
@@ -39,20 +45,26 @@ export async function GET(req: Request) {
   const settings = await prisma.settings.findUnique({ where: { id: 1 } });
   const holdsSlot = settings?.pendingRequestHoldsSlot ?? true;
   const concurrentStatuses = holdsSlot ? (["PENDENTE", "APROVADA"] as const) : (["APROVADA"] as const);
-  // Domingo do mês não tem limite de vagas (a Direção decide na aprovação),
-  // então não faz sentido mostrar "de N vagas" pra esse tipo.
-  const limite = type === "DOMINGO_MES" ? null : (jobFunction?.dailyLeaveLimit ?? 1);
+  // Domingo do mês (e o substituto) não têm limite de vagas (a Direção
+  // decide na aprovação), então não faz sentido mostrar "de N vagas".
+  const limite =
+    effectiveType === "DOMINGO_MES" || effectiveType === "DOMINGO_MES_SUBSTITUTO"
+      ? null
+      : (jobFunction?.dailyLeaveLimit ?? 1);
 
   const days = [];
   for (let day = 1; day <= daysInMonth; day++) {
     const date = new Date(Date.UTC(year, m - 1, day));
-    if (type === "DOMINGO_MES" && date.getUTCDay() !== 0) continue; // só mostra domingos
+    // DOMINGO_MES só mostra domingos; o substituto só mostra dias de
+    // segunda a sábado (domingo já é a folga semanal normal dessa pessoa).
+    if (effectiveType === "DOMINGO_MES" && date.getUTCDay() !== 0) continue;
+    if (effectiveType === "DOMINGO_MES_SUBSTITUTO" && date.getUTCDay() === 0) continue;
 
     const result = await verificarDisponibilidade(prisma, {
       employeeId,
       jobFunctionId,
       date,
-      type,
+      type: effectiveType,
     });
     const ocupadas = await prisma.leaveRequest.count({
       where: { jobFunctionId, date, status: { in: [...concurrentStatuses] } },
@@ -60,5 +72,5 @@ export async function GET(req: Request) {
     days.push({ date: date.toISOString().slice(0, 10), ...result, ocupadas, limite });
   }
 
-  return NextResponse.json(days);
+  return NextResponse.json({ days, effectiveType });
 }

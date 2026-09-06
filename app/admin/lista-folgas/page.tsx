@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 type LeaveEntry = {
   id: string;
   date: string;
-  type: "DOMINGO_MES" | "COMPENSATORIA" | "EXTRA";
+  type: "DOMINGO_MES" | "DOMINGO_MES_SUBSTITUTO" | "COMPENSATORIA" | "EXTRA";
   status: string;
   employeeName: string;
   jobFunctionName: string;
@@ -14,6 +14,7 @@ type LeaveEntry = {
 
 const typeLabel: Record<LeaveEntry["type"], string> = {
   DOMINGO_MES: "Domingo do mês",
+  DOMINGO_MES_SUBSTITUTO: "Folga referente ao Domingo do Mês",
   COMPENSATORIA: "Compensatória",
   EXTRA: "Folga extra",
 };

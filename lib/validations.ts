@@ -21,6 +21,9 @@ export const loginSchema = z.object({
 });
 
 export const createLeaveRequestSchema = z.object({
+  // DOMINGO_MES_SUBSTITUTO não é escolhido pelo cliente: o autoatendimento
+  // sempre pede "DOMINGO_MES" e o backend troca pra SUBSTITUTO sozinho
+  // quando a folga semanal fixa do funcionário já é domingo.
   type: z.enum(["DOMINGO_MES", "COMPENSATORIA", "EXTRA"]),
   date: z.string().date(), // "YYYY-MM-DD"
 });

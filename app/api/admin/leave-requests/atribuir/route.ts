@@ -48,14 +48,20 @@ export async function POST(req: Request) {
         let trocouEssa = false;
 
         if (body.type === "DOMINGO_MES") {
-          // Troca automática: se já tem um domingo ativo nesse mês, cancela
-          // antes de criar o novo (cobre "às vezes trocam o domingo").
+          // Quem já folga toda semana no domingo recebe o substituto (1 dia
+          // de semana) no lugar de um domingo de verdade — mesma ação da
+          // Direção, tipo diferente só pra ficar identificado certo.
+          const effectiveType = employee.weeklyDayOff === 0 ? "DOMINGO_MES_SUBSTITUTO" : "DOMINGO_MES";
+
+          // Troca automática: se já tem um domingo (ou substituto) ativo
+          // nesse mês, cancela antes de criar o novo (cobre "às vezes
+          // trocam o domingo").
           const monthStart = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
           const monthEnd = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1));
           const existente = await tx.leaveRequest.findFirst({
             where: {
               employeeId,
-              type: "DOMINGO_MES",
+              type: { in: ["DOMINGO_MES", "DOMINGO_MES_SUBSTITUTO"] },
               date: { gte: monthStart, lt: monthEnd },
               status: { in: ["PENDENTE", "APROVADA"] },
             },
@@ -79,7 +85,7 @@ export async function POST(req: Request) {
             data: {
               employeeId,
               jobFunctionId,
-              type: "DOMINGO_MES",
+              type: effectiveType,
               date,
               status: "APROVADA",
               decidedAt: new Date(),
@@ -91,7 +97,7 @@ export async function POST(req: Request) {
             action: "LEAVE_ASSIGNED_BY_DIRECTOR",
             targetType: "LeaveRequest",
             targetId: novo.id,
-            metadata: { type: body.type, date: body.date },
+            metadata: { type: effectiveType, date: body.date },
           });
         } else {
           // Compensatória/Extra: concede e já consome 1 crédito na mesma

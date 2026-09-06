@@ -41,6 +41,15 @@ enum LeaveType {
   DOMINGO_MES
   COMPENSATORIA
   EXTRA
+
+  // Só existe para quem já folga toda semana no domingo (Employee.weeklyDayOff
+  // = 0): pra essa turma domingo já é folga normal, então o direito ao
+  // "domingo do mês" vira 1 dia de semana (segunda a sábado) no mês, no
+  // lugar de um domingo de verdade. Mesma lógica de autoatendimento/
+  // atribuição/sorteio do DOMINGO_MES, só que com outro pool de dias — por
+  // isso é um tipo à parte, pra nunca ser confundido com folga semanal nem
+  // com compensatória nos relatórios e telas.
+  DOMINGO_MES_SUBSTITUTO
 }
 
 enum LeaveRequestStatus {

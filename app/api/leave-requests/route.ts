@@ -56,6 +56,12 @@ export async function POST(req: Request) {
 
   const parsedDate = new Date(`${date}T00:00:00.000Z`);
 
+  // Quem já folga toda semana no domingo pede "DOMINGO_MES" igual todo mundo
+  // (a tela não muda) — o backend que troca sozinho pro tipo substituto, que
+  // usa um dia de semana no lugar de um domingo de verdade.
+  const effectiveType =
+    type === "DOMINGO_MES" && employee?.weeklyDayOff === 0 ? "DOMINGO_MES_SUBSTITUTO" : type;
+
   try {
     // A verificação roda DE NOVO dentro da transação, com isolamento
     // Serializable, para tratar corretamente duas pessoas solicitando a
@@ -67,7 +73,7 @@ export async function POST(req: Request) {
           employeeId,
           jobFunctionId: principal.jobFunctionId,
           date: parsedDate,
-          type,
+          type: effectiveType,
         });
         if (!check.disponivel) {
           throw new AvailabilityError(check.motivo, check.mensagem);
@@ -77,7 +83,7 @@ export async function POST(req: Request) {
           data: {
             employeeId,
             jobFunctionId: principal.jobFunctionId,
-            type,
+            type: effectiveType,
             date: parsedDate,
             status: "PENDENTE",
           },
@@ -88,7 +94,7 @@ export async function POST(req: Request) {
           action: "LEAVE_REQUESTED",
           targetType: "LeaveRequest",
           targetId: leaveRequest.id,
-          metadata: { type, date },
+          metadata: { type: effectiveType, date },
         });
 
         return leaveRequest;

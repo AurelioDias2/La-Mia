@@ -9,6 +9,7 @@ type Summary = {
   compensatoria: { total: number; reservado: number; disponivel: number };
   extra: { total: number; reservado: number; disponivel: number };
   domingoDisponivel: boolean;
+  domingoSubstituto: boolean;
   nextLeave: { date: string; type: string } | null;
   allowSelfServiceCompensatoria: boolean;
 };
@@ -44,7 +45,9 @@ export default function FuncionarioHome() {
             <p className="font-display text-2xl font-semibold text-vinho-500">
               {summary.domingoDisponivel ? "✓" : "—"}
             </p>
-            <p className="text-xs text-carvao-500">Domingo</p>
+            <p className="text-xs text-carvao-500">
+              {summary.domingoSubstituto ? "Folga do mês" : "Domingo"}
+            </p>
           </div>
           <div>
             <p className="font-display text-2xl font-semibold text-vinho-500">
@@ -79,8 +82,14 @@ export default function FuncionarioHome() {
             onClick={() => setActiveAction(activeAction === "DOMINGO_MES" ? null : "DOMINGO_MES")}
             className="btn-secondary justify-start"
           >
-            Escolher domingo
+            {summary.domingoSubstituto ? "Escolher folga do mês" : "Escolher domingo"}
           </button>
+          {summary.domingoSubstituto && (
+            <p className="-mt-1 text-xs text-carvao-500">
+              Sua folga semanal já é aos domingos — aqui você escolhe 1 dia de segunda a sábado no
+              mês no lugar do domingo do mês.
+            </p>
+          )}
           <button
             onClick={() => setActiveAction(activeAction === "COMPENSATORIA" ? null : "COMPENSATORIA")}
             disabled={summary.compensatoria.disponivel <= 0 || !summary.allowSelfServiceCompensatoria}

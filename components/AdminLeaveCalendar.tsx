@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 type LeaveEntry = {
   id: string;
   date: string;
-  type: "DOMINGO_MES" | "COMPENSATORIA" | "EXTRA" | "FOLGA_SEMANAL";
+  type: "DOMINGO_MES" | "DOMINGO_MES_SUBSTITUTO" | "COMPENSATORIA" | "EXTRA" | "FOLGA_SEMANAL";
   status: string;
   employeeName: string;
   jobFunctionName: string;
@@ -24,15 +24,17 @@ type EmployeeComFolga = {
 
 const typeLabel: Record<LeaveEntry["type"], string> = {
   DOMINGO_MES: "Domingo do mês",
+  DOMINGO_MES_SUBSTITUTO: "Folga referente ao Domingo do Mês",
   COMPENSATORIA: "Compensatória",
   EXTRA: "Folga extra",
   FOLGA_SEMANAL: "Folga semanal",
 };
 
-const TIPOS_FILTRO = ["Todos", "DOMINGO_MES", "FOLGA_SEMANAL", "COMPENSATORIA"] as const;
+const TIPOS_FILTRO = ["Todos", "DOMINGO_MES", "DOMINGO_MES_SUBSTITUTO", "FOLGA_SEMANAL", "COMPENSATORIA"] as const;
 const LABEL_TIPO_FILTRO: Record<(typeof TIPOS_FILTRO)[number], string> = {
   Todos: "Todos",
   DOMINGO_MES: "Domingo do mês",
+  DOMINGO_MES_SUBSTITUTO: "Folga do Domingo do Mês",
   FOLGA_SEMANAL: "Folga semanal",
   COMPENSATORIA: "Compensatória",
 };
@@ -78,9 +80,16 @@ const TITULO_RELATORIO: Record<LeaveEntry["type"], string> = {
   COMPENSATORIA: "FOLGAS COMPENSATÓRIAS",
   EXTRA: "FOLGAS EXTRAS",
   DOMINGO_MES: "DOMINGO DO MÊS",
+  DOMINGO_MES_SUBSTITUTO: "FOLGA REFERENTE AO DOMINGO DO MÊS",
   FOLGA_SEMANAL: "FOLGA SEMANAL",
 };
-const ORDEM_RELATORIO: LeaveEntry["type"][] = ["COMPENSATORIA", "EXTRA", "FOLGA_SEMANAL", "DOMINGO_MES"];
+const ORDEM_RELATORIO: LeaveEntry["type"][] = [
+  "COMPENSATORIA",
+  "EXTRA",
+  "FOLGA_SEMANAL",
+  "DOMINGO_MES",
+  "DOMINGO_MES_SUBSTITUTO",
+];
 
 function primeiroNome(nomeCompleto: string): string {
   return nomeCompleto.trim().split(/\s+/)[0];

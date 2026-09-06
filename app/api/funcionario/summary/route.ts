@@ -23,7 +23,7 @@ export async function GET() {
     prisma.leaveRequest.findFirst({
       where: {
         employeeId,
-        type: "DOMINGO_MES",
+        type: { in: ["DOMINGO_MES", "DOMINGO_MES_SUBSTITUTO"] },
         status: { in: ["PENDENTE", "APROVADA"] },
         date: {
           gte: new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)),
@@ -40,6 +40,9 @@ export async function GET() {
     compensatoria: comp,
     extra,
     domingoDisponivel: !thisMonthSunday,
+    // Pra saber se essa pessoa vai ver "domingo do mês" de verdade ou o
+    // substituto (1 dia de semana), já que já folga toda semana no domingo.
+    domingoSubstituto: employee?.weeklyDayOff === 0,
     nextLeave,
     allowSelfServiceCompensatoria: settings?.allowSelfServiceCompensatoria ?? true,
   });

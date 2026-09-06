@@ -96,11 +96,12 @@ export async function verificarDisponibilidade(
   // 2.1.1. Folga semanal fixa da pessoa (definida só pela Direção — ex:
   // escala de Produção/Serviços Gerais). É estrutural, igual ao fechamento
   // de função: nesse dia ela já não trabalha, não faz sentido pedir
-  // compensatória/extra nele. NÃO vale pra domingo do mês — é um direito à
-  // parte, todo funcionário tem direito a ele independente da folga
-  // semanal (mesmo quem já folga toda semana num domingo).
+  // compensatória/extra nele. NÃO vale pra domingo do mês (nem pro seu
+  // substituto) — é um direito à parte, todo funcionário tem direito a ele
+  // independente da folga semanal.
   if (
     params.type !== LeaveType.DOMINGO_MES &&
+    params.type !== LeaveType.DOMINGO_MES_SUBSTITUTO &&
     employee.weeklyDayOff !== null &&
     data.getUTCDay() === employee.weeklyDayOff
   ) {
@@ -126,9 +127,39 @@ export async function verificarDisponibilidade(
     );
   }
 
-  // Para DOMINGO_MES, a data escolhida precisa realmente ser domingo.
-  if (params.type === LeaveType.DOMINGO_MES && data.getUTCDay() !== 0) {
-    return fail("DIA_INVALIDO", "A data escolhida não é um domingo.");
+  // Para DOMINGO_MES, a data escolhida precisa realmente ser domingo — e só
+  // faz sentido pra quem trabalha aos domingos normalmente. Quem já folga
+  // toda semana no domingo (weeklyDayOff = 0) usa DOMINGO_MES_SUBSTITUTO no
+  // lugar (ver abaixo), então nem entra como opção pra ela.
+  if (params.type === LeaveType.DOMINGO_MES) {
+    if (employee.weeklyDayOff === 0) {
+      return fail(
+        "DIA_INVALIDO",
+        "Você já folga aos domingos toda semana — seu domingo do mês agora é um dia de semana."
+      );
+    }
+    if (data.getUTCDay() !== 0) {
+      return fail("DIA_INVALIDO", "A data escolhida não é um domingo.");
+    }
+  }
+
+  // DOMINGO_MES_SUBSTITUTO: existe só pra quem já folga toda semana no
+  // domingo. Pra esse grupo, o direito ao "domingo do mês" vira 1 dia de
+  // semana (segunda a sábado) no mês — nunca um domingo de verdade, porque
+  // domingo já é a folga semanal normal dela.
+  if (params.type === LeaveType.DOMINGO_MES_SUBSTITUTO) {
+    if (employee.weeklyDayOff !== 0) {
+      return fail(
+        "DIA_INVALIDO",
+        "Esse tipo de folga é só pra quem folga aos domingos toda semana."
+      );
+    }
+    if (data.getUTCDay() === 0) {
+      return fail(
+        "DIA_INVALIDO",
+        "Escolha um dia de segunda a sábado — domingo já é sua folga semanal."
+      );
+    }
   }
 
   // 3. Feriado com loja fechada conta como dia inválido para solicitar.
@@ -160,31 +191,33 @@ export async function verificarDisponibilidade(
     return fail("SOLICITACAO_EXISTENTE", "Você já possui uma solicitação para esta data.");
   }
 
-  // 6. Regra do domingo do mês: só um domingo por mês por funcionário
-  //    (pendente ou aprovado já conta) — seção 13.3.
-  if (params.type === LeaveType.DOMINGO_MES) {
+  // 6. Regra do domingo do mês: só um por mês por funcionário (pendente ou
+  //    aprovado já conta) — seção 13.3. Vale junto pro substituto: são o
+  //    mesmo direito, só entregue de formas diferentes.
+  if (params.type === LeaveType.DOMINGO_MES || params.type === LeaveType.DOMINGO_MES_SUBSTITUTO) {
     const monthStart = new Date(Date.UTC(data.getUTCFullYear(), data.getUTCMonth(), 1));
     const monthEnd = new Date(Date.UTC(data.getUTCFullYear(), data.getUTCMonth() + 1, 1));
     const alreadyUsedThisMonth = await tx.leaveRequest.findFirst({
       where: {
         employeeId: params.employeeId,
-        type: LeaveType.DOMINGO_MES,
+        type: { in: [LeaveType.DOMINGO_MES, LeaveType.DOMINGO_MES_SUBSTITUTO] },
         date: { gte: monthStart, lt: monthEnd },
         status: { in: ["PENDENTE", "APROVADA"] },
       },
     });
     if (alreadyUsedThisMonth) {
-      return fail("DOMINGO_JA_UTILIZADO", "Você já possui um domingo solicitado ou aprovado neste mês.");
+      return fail("DOMINGO_JA_UTILIZADO", "Você já possui um domingo do mês solicitado ou aprovado neste mês.");
     }
   }
 
   // 7. Conflito de função: limite de folgas simultâneas por dia por função
-  //    (seção 14 e 49 — configurável, padrão 1). O domingo do mês não entra
-  //    nessa trava: várias pessoas podem pedir o mesmo domingo, e quem decide
-  //    se dá pra aprovar todo mundo (ou só parte) é sempre a Direção na hora
-  //    de aprovar — o calendário já mostra pra cada funcionário quantas
-  //    pessoas escolheram aquele dia, pra ela poder preferir outra data.
-  if (params.type !== LeaveType.DOMINGO_MES) {
+  //    (seção 14 e 49 — configurável, padrão 1). O domingo do mês (e o seu
+  //    substituto) não entram nessa trava: várias pessoas podem pedir o
+  //    mesmo dia, e quem decide se dá pra aprovar todo mundo (ou só parte) é
+  //    sempre a Direção na hora de aprovar — o calendário já mostra pra cada
+  //    funcionário quantas pessoas escolheram aquele dia, pra ela poder
+  //    preferir outra data.
+  if (params.type !== LeaveType.DOMINGO_MES && params.type !== LeaveType.DOMINGO_MES_SUBSTITUTO) {
     const holdsSlot = settings?.pendingRequestHoldsSlot ?? true;
     const concurrentStatuses = holdsSlot ? (["PENDENTE", "APROVADA"] as const) : (["APROVADA"] as const);
     const sameDayFunctionCount = await tx.leaveRequest.count({

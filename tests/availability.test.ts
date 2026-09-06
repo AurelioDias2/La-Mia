@@ -344,10 +344,10 @@ describe("verificarDisponibilidade", () => {
     expect(result).toEqual({ disponivel: true, motivo: "DISPONIVEL", mensagem: "Disponível." });
   });
 
-  it("não bloqueia domingo do mês mesmo quando a folga semanal fixa da pessoa é domingo", async () => {
-    // Bug real: quem folga toda semana no domingo não conseguia escolher o
-    // domingo do mês, porque a folga semanal "engolia" o domingo do mês —
-    // são direitos separados, todo funcionário tem direito aos dois.
+  it("recusa DOMINGO_MES pra quem já folga toda semana no domingo (usa o substituto)", async () => {
+    // Quem folga toda semana no domingo não escolhe mais um domingo de
+    // verdade como "domingo do mês" — domingo já é folga normal dela. O
+    // direito vira DOMINGO_MES_SUBSTITUTO (1 dia de semana no mês).
     const funcao = await criarFuncao({ followsStoreClosure: false });
     const { employee } = await criarFuncionario({ jobFunctionId: funcao.id, weeklyDayOff: 0 }); // domingo
 
@@ -356,6 +356,89 @@ describe("verificarDisponibilidade", () => {
       jobFunctionId: funcao.id,
       date: DOMINGO,
       type: "DOMINGO_MES",
+    });
+
+    expect(result.disponivel).toBe(false);
+    expect(result.motivo).toBe("DIA_INVALIDO");
+  });
+
+  it("libera DOMINGO_MES_SUBSTITUTO num dia de semana pra quem folga toda semana no domingo", async () => {
+    const funcao = await criarFuncao({ followsStoreClosure: false });
+    const { employee } = await criarFuncionario({ jobFunctionId: funcao.id, weeklyDayOff: 0 }); // domingo
+
+    const result = await verificarDisponibilidade(prisma, {
+      employeeId: employee.id,
+      jobFunctionId: funcao.id,
+      date: TERCA_FEIRA,
+      type: "DOMINGO_MES_SUBSTITUTO",
+    });
+
+    expect(result).toEqual({ disponivel: true, motivo: "DISPONIVEL", mensagem: "Disponível." });
+  });
+
+  it("recusa DOMINGO_MES_SUBSTITUTO num domingo — o objetivo é justamente fugir do domingo", async () => {
+    const funcao = await criarFuncao({ followsStoreClosure: false });
+    const { employee } = await criarFuncionario({ jobFunctionId: funcao.id, weeklyDayOff: 0 }); // domingo
+
+    const result = await verificarDisponibilidade(prisma, {
+      employeeId: employee.id,
+      jobFunctionId: funcao.id,
+      date: DOMINGO,
+      type: "DOMINGO_MES_SUBSTITUTO",
+    });
+
+    expect(result.disponivel).toBe(false);
+    expect(result.motivo).toBe("DIA_INVALIDO");
+  });
+
+  it("recusa DOMINGO_MES_SUBSTITUTO pra quem não folga toda semana no domingo", async () => {
+    const funcao = await criarFuncao({ followsStoreClosure: false });
+    const { employee } = await criarFuncionario({ jobFunctionId: funcao.id }); // sem weeklyDayOff
+
+    const result = await verificarDisponibilidade(prisma, {
+      employeeId: employee.id,
+      jobFunctionId: funcao.id,
+      date: TERCA_FEIRA,
+      type: "DOMINGO_MES_SUBSTITUTO",
+    });
+
+    expect(result.disponivel).toBe(false);
+    expect(result.motivo).toBe("DIA_INVALIDO");
+  });
+
+  it("DOMINGO_MES e DOMINGO_MES_SUBSTITUTO compartilham o limite de 1 por mês", async () => {
+    const funcao = await criarFuncao({ followsStoreClosure: false });
+    const { employee } = await criarFuncionario({ jobFunctionId: funcao.id, weeklyDayOff: 0 });
+    await prisma.leaveRequest.create({
+      data: {
+        employeeId: employee.id,
+        jobFunctionId: funcao.id,
+        type: "DOMINGO_MES_SUBSTITUTO",
+        date: TERCA_FEIRA,
+        status: "APROVADA",
+      },
+    });
+
+    const result = await verificarDisponibilidade(prisma, {
+      employeeId: employee.id,
+      jobFunctionId: funcao.id,
+      date: QUARTA_FEIRA,
+      type: "DOMINGO_MES_SUBSTITUTO",
+    });
+
+    expect(result.disponivel).toBe(false);
+    expect(result.motivo).toBe("DOMINGO_JA_UTILIZADO");
+  });
+
+  it("não bloqueia DOMINGO_MES_SUBSTITUTO por causa da folga semanal fixa (é o próprio domingo)", async () => {
+    const funcao = await criarFuncao({ followsStoreClosure: false });
+    const { employee } = await criarFuncionario({ jobFunctionId: funcao.id, weeklyDayOff: 0 });
+
+    const result = await verificarDisponibilidade(prisma, {
+      employeeId: employee.id,
+      jobFunctionId: funcao.id,
+      date: SEGUNDA_FEIRA,
+      type: "DOMINGO_MES_SUBSTITUTO",
     });
 
     expect(result).toEqual({ disponivel: true, motivo: "DISPONIVEL", mensagem: "Disponível." });

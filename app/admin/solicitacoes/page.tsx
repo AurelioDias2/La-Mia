@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 type LeaveRequest = {
   id: string;
-  type: "DOMINGO_MES" | "COMPENSATORIA" | "EXTRA";
+  type: "DOMINGO_MES" | "DOMINGO_MES_SUBSTITUTO" | "COMPENSATORIA" | "EXTRA";
   date: string;
   status: string;
   requestedAt: string;
@@ -14,6 +14,7 @@ type LeaveRequest = {
 
 const typeLabel: Record<LeaveRequest["type"], string> = {
   DOMINGO_MES: "Domingo do mês",
+  DOMINGO_MES_SUBSTITUTO: "Folga referente ao Domingo do Mês",
   COMPENSATORIA: "Compensatória",
   EXTRA: "Folga extra",
 };

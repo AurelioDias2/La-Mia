@@ -55,13 +55,18 @@ export function LeaveCalendar({
   const now = new Date();
   const [month, setMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   const [days, setDays] = useState<DayStatus[]>([]);
+  const [effectiveType, setEffectiveType] = useState<
+    "DOMINGO_MES" | "DOMINGO_MES_SUBSTITUTO" | "COMPENSATORIA" | "EXTRA"
+  >(type);
   const [selected, setSelected] = useState<DayStatus | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
   async function load() {
     const res = await fetch(`/api/leave-requests/availability?type=${type}&month=${month}`);
-    setDays(await res.json());
+    const data = await res.json();
+    setDays(data.days);
+    setEffectiveType(data.effectiveType);
   }
 
   useEffect(() => {
@@ -114,6 +119,12 @@ export function LeaveCalendar({
 
   return (
     <div className="card">
+      {effectiveType === "DOMINGO_MES_SUBSTITUTO" && (
+        <p className="mb-3 rounded-card border border-crosta-200 bg-crosta-50 p-2 text-xs text-carvao-700">
+          Como sua folga semanal já é aos domingos, aqui você escolhe 1 dia de segunda a sábado no
+          mês — é a sua folga referente ao domingo do mês.
+        </p>
+      )}
       <div className="mb-3 flex items-center justify-between">
         <button
           className="btn-secondary px-3 py-1.5 text-xs"
